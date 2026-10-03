@@ -3,7 +3,8 @@
 Usage: python predict.py path/to/new_data.csv [output.csv]
 
 The input needs the same columns as the training data (the `fraud` column is
-optional and ignored). Writes id, fraud_probability and fraud (0/1).
+optional). Writes id, fraud_probability and fraud (0/1). If the input has a
+`fraud` column, it also reports how well the predictions match it.
 """
 import json
 import os
@@ -11,8 +12,14 @@ import sys
 
 import pandas as pd
 import xgboost as xgb
+from sklearn.metrics import (
+    average_precision_score,
+    classification_report,
+    confusion_matrix,
+    roc_auc_score,
+)
 
-from train_xgboost import MODEL_DIR, prepare_features
+from train_xgboost import MODEL_DIR, TARGET, prepare_features
 
 
 def main():
@@ -39,6 +46,13 @@ def main():
     out.to_csv(out_path, index=False)
     print(f"Scored {len(out)} rows -> {out_path}  "
           f"({out['fraud'].sum()} flagged as fraud at threshold {meta['threshold']:.3f})")
+
+    if TARGET in df.columns:
+        y = df[TARGET]
+        print(f"\nEvaluation against true labels (n={len(y)}, frauds={int(y.sum())})")
+        print(f"ROC-AUC {roc_auc_score(y, proba):.4f}  PR-AUC {average_precision_score(y, proba):.4f}")
+        print("Confusion matrix [[TN FP] [FN TP]]:\n", confusion_matrix(y, out["fraud"]))
+        print(classification_report(y, out["fraud"], digits=4))
 
 
 if __name__ == "__main__":
