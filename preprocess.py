@@ -8,7 +8,7 @@ Imputation rules (applied in this order, repeated for up to MAX_CYCLES cycles):
   2. country               <- mode of country for the same merchant_category
   3. transaction_channel   <- mode of transaction_channel for the same merchant_category
   4. transactions_last_24h <- transactions_last_1h
-  5. spend_last_24h        <- transaction_amount * transactions_last_1h
+  5. spend_last_24h        <- transaction_amount * transactions_last_24h
   6. account_age           <- median account_age for the same country
                               (fallback: median of the whole column)
   7. new_device            <- mode of new_device for the same country
@@ -61,8 +61,8 @@ def run_cycle(df):
         group_mode(df, "transaction_channel", "merchant_category"))
     filled["4. transactions_last_24h (= last 1h)"] = fill_with_value(
         df, "transactions_last_24h", df["transactions_last_1h"])
-    filled["5. spend_last_24h (= amount x last 1h)"] = fill_with_value(
-        df, "spend_last_24h", df["transaction_amount"] * df["transactions_last_1h"])
+    filled["5. spend_last_24h (= amount x last 24h)"] = fill_with_value(
+        df, "spend_last_24h", df["transaction_amount"] * df["transactions_last_24h"])
 
     n = fill_from_group(df, "account_age", "country", group_median(df, "account_age", "country"))
     filled["6. account_age (median by country)"] = n
