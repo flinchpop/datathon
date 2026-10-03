@@ -1,0 +1,60 @@
+{
+  "train_rows": 20000,
+  "test_rows": 12000,
+  "train_fraud_rate": 0.01765,
+  "train_positives": 353,
+  "adversarial_auc": 0.6699769729166666,
+  "adversarial_importance": {
+    "account_age": 0.2573,
+    "transaction_amount": 0.1414,
+    "spend_last_24h": 0.1151,
+    "transactions_last_24h": 0.1078,
+    "merchant_category": 0.0841,
+    "new_device": 0.0752,
+    "transaction_channel": 0.0608,
+    "transactions_last_1h": 0.0597,
+    "country": 0.0524,
+    "transaction_hour": 0.0462
+  },
+  "final_model": "Explainable Boosting Machine",
+  "beta": 1.7320508075688772,
+  "threshold": 0.085,
+  "cv": {
+    "model": "Explainable Boosting Machine",
+    "pr_auc_mean": 0.2237797740689949,
+    "pr_auc_std": 0.035524261887510435,
+    "roc_auc_mean": 0.7808683216046066,
+    "best_f1": 0.2876933249836575,
+    "threshold": 0.085,
+    "precision_at_t": 0.23317845928082,
+    "recall_at_t": 0.3012275731822474,
+    "f1_at_t": 0.26280253322722064,
+    "brier": 0.01528398232851254,
+    "pr_auc_test_like": 0.3386840583701262,
+    "note": "Glass-box GA2M (chosen)"
+  },
+  "cv_at_threshold": {
+    "precision": 0.23317845928082,
+    "recall": 0.3012275731822474,
+    "f1": 0.26280253322722064,
+    "f2": 0.28456042196295456,
+    "f_beta": 0.2806829227515572,
+    "flag_rate": 0.022833333333333334
+  },
+  "cv_f1_optimal": {
+    "threshold": 0.16,
+    "precision": 0.402152050733611,
+    "recall": 0.2152974504249292,
+    "f1": 0.28045026163642833
+  },
+  "test_flagged": 470,
+  "test_forecast_if_calibrated": {
+    "threshold": 0.085,
+    "expected_prevalence": 0.02219951928676634,
+    "flag_rate": 0.03916666666666667,
+    "expected_precision": 0.24363180212876187,
+    "expected_recall": 0.42984018978577004,
+    "expected_f1": 0.31099360128450954,
+    "expected_f_beta": 0.36088404770298144
+  }
+}

@@ -1,0 +1,13 @@
+numpy>=2.0
+pandas>=2.2
+scikit-learn>=1.5
+interpret-core>=0.7
+lightgbm>=4.3
+xgboost>=2.0
+catboost>=1.2
+scipy>=1.12
+matplotlib>=3.8
+nbformat>=5.9
+nbconvert>=7.16
+ipykernel>=6.29
+jinja2>=3.1
