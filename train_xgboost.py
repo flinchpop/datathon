@@ -24,7 +24,10 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import StratifiedKFold, train_test_split
 
-DATA_PATH = sys.argv[1] if len(sys.argv) > 1 else "data/Track_2_Training_Dataset.csv"
+# Command-line path if given; Jupyter passes its own "-f <kernel file>" arguments, so only
+# accept a .csv argument and otherwise use the default.
+DATA_PATH = (sys.argv[1] if len(sys.argv) > 1 and sys.argv[1].endswith(".csv")
+             else "data/Track_2_Training_Dataset.csv")
 TARGET = "fraud"
 CATEGORICAL = ["merchant_category", "country", "transaction_channel"]
 SEED = 42

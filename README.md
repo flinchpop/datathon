@@ -22,7 +22,8 @@ python predict.py            # scores data/Track_2_Testing_Dataset.csv -> predic
 python explain_xgboost.py    # column weights / value effects / per-row SHAP -> outputs/xgboost/
 ```
 
-`python export_model_pkl.py` writes `model.pkl`: the same model with the feature engineering
+`export_model_pkl.py` is a Jupyter cell: put the contents of `train_xgboost.py` in the cell
+above it, run both, and it writes `model.pkl`: the same model with the feature engineering
 built in (`pickle.load(...)` then `model.predict_proba(raw_test_df)[:, 1]`).
 
 `predict.py --model catboost` uses the CatBoost model instead (`train_catboost.py`, `explain_catboost.py`).

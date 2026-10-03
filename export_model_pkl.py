@@ -1,20 +1,21 @@
-"""Package the saved XGBoost model (model/xgb_fraud.json + model/metadata.json) as model.pkl.
-
-The pickle holds one object that takes the RAW transactions table (same columns as
-Track_2_Testing_Dataset.csv) and does the feature engineering itself:
-
-    import pickle, pandas as pd
-    model = pickle.load(open("model.pkl", "rb"))
-    df = pd.read_csv("Track_2_Testing_Dataset.csv")
-    proba = model.predict_proba(df)[:, 1]   # fraud probability
-    flags = model.predict(df)               # 0/1 at the saved threshold
-
-The class and feature code are stored inside the pickle (by value), so loading it only
-needs numpy, pandas, xgboost and cloudpickle (installed with scikit-learn), not this
-repository.
-
-Usage: python export_model_pkl.py   ->  writes model.pkl
-"""
+# Jupyter cell: package the trained XGBoost model as model.pkl.
+#
+# Run this in the cell BELOW the train_xgboost.py cell. That cell defines
+# prepare_features, MODEL_DIR, TARGET, CATEGORICAL, ... in the notebook and its
+# main() saves model/xgb_fraud.json and model/metadata.json, which are loaded here.
+#
+# The pickle holds one object that takes the RAW transactions table (same columns as
+# Track_2_Testing_Dataset.csv) and builds the features itself:
+#
+#     import pickle, pandas as pd
+#     model = pickle.load(open("model.pkl", "rb"))
+#     df = pd.read_csv("Track_2_Testing_Dataset.csv")
+#     proba = model.predict_proba(df)[:, 1]   # fraud probability
+#     flags = model.predict(df)               # 0/1 at the saved threshold
+#
+# cloudpickle stores notebook-defined code (FraudModel, prepare_features and the
+# constants it uses) inside the pickle, so loading it needs only numpy, pandas,
+# xgboost and cloudpickle (installed with scikit-learn), not the notebook.
 import json
 import os
 import pickle
@@ -22,9 +23,7 @@ import pickle
 import cloudpickle
 import xgboost as xgb
 
-import train_xgboost as tx
-
-OUT_PATH = "model.pkl"
+PKL_PATH = "model.pkl"
 
 
 class FraudModel:
@@ -37,8 +36,8 @@ class FraudModel:
         self.threshold = threshold
 
     def transform(self, df):
-        """The 30 model features, built exactly as in train_xgboost.prepare_features."""
-        return tx.prepare_features(df, self.encoders)[self.features]
+        """The 30 model features, built by prepare_features from the train_xgboost cell."""
+        return prepare_features(df, self.encoders)[self.features]
 
     def predict_proba(self, df):
         return self.classifier.predict_proba(self.transform(df))
@@ -47,19 +46,12 @@ class FraudModel:
         return (self.predict_proba(df)[:, 1] >= self.threshold).astype(int)
 
 
-def main():
-    with open(os.path.join(tx.MODEL_DIR, "metadata.json")) as f:
-        meta = json.load(f)
-    clf = xgb.XGBClassifier()
-    clf.load_model(os.path.join(tx.MODEL_DIR, "xgb_fraud.json"))
-    model = FraudModel(clf, meta["encoders"], meta["features"], meta["threshold"])
+with open(os.path.join(MODEL_DIR, "metadata.json")) as f:
+    metadata = json.load(f)
+classifier = xgb.XGBClassifier()
+classifier.load_model(os.path.join(MODEL_DIR, "xgb_fraud.json"))
+fraud_model = FraudModel(classifier, metadata["encoders"], metadata["features"], metadata["threshold"])
 
-    # Store this module's class and train_xgboost's feature code inside the pickle.
-    cloudpickle.register_pickle_by_value(tx)
-    with open(OUT_PATH, "wb") as f:
-        cloudpickle.dump(model, f, protocol=pickle.DEFAULT_PROTOCOL)
-    print(f"Wrote {OUT_PATH} ({os.path.getsize(OUT_PATH) / 1024:.0f} KB)  threshold {model.threshold:.3f}")
-
-
-if __name__ == "__main__":
-    main()
+with open(PKL_PATH, "wb") as f:
+    cloudpickle.dump(fraud_model, f, protocol=pickle.DEFAULT_PROTOCOL)
+print(f"Wrote {PKL_PATH} ({os.path.getsize(PKL_PATH) / 1024:.0f} KB)  threshold {fraud_model.threshold:.3f}")
