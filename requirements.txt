@@ -1,4 +1,5 @@
 xgboost
+cloudpickle
 catboost
 scikit-learn
 pandas
