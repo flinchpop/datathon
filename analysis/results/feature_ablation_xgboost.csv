@@ -1,0 +1,7 @@
+feature_set,pr_auc_mean,roc_auc_mean,test_weighted_pr_auc_mean,pr_auc_std,roc_auc_std,test_weighted_pr_auc_std
+all features (submitted model),0.2013,0.7721,0.3017,0.0065,0.0039,0.0107
+raw columns only,0.208,0.7754,0.3142,0.0046,0.0043,0.0115
+without missing flags,0.2017,0.7714,0.3012,0.0053,0.0038,0.0112
+without ratios,0.2069,0.7758,0.3112,0.006,0.004,0.0149
+without flags,0.2024,0.7725,0.3061,0.0055,0.0042,0.0099
+without risk scores,0.2036,0.7723,0.3096,0.0053,0.0034,0.0105
