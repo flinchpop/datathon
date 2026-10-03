@@ -1,0 +1,7 @@
+model,cv_RMSE,cv_MAE,cv_R2,cv_missing_RMSE,cv_missing_MAE,cv_missing_R2,test_like_RMSE,test_like_MAE,test_like_R2,seconds
+Persistence baseline,6.4226,4.3424,0.8788,6.5243,4.4219,0.8749,9.9591,6.3317,0.7673,0
+Linear + median imputation,3.138,2.4548,0.9711,3.3734,2.5711,0.9666,3.6284,2.6887,0.9691,1
+Linear (reduced-feature),3.0976,2.4377,0.9718,3.257,2.525,0.9688,3.5136,2.6454,0.971,5
+LightGBM (native NaN),3.3273,2.5958,0.9675,3.752,2.8076,0.9586,4.1728,3.0058,0.9591,14
+LightGBM (reduced-feature),3.2627,2.5656,0.9687,3.3726,2.6255,0.9666,3.6405,2.7775,0.9689,133
+Linear+GBM hybrid (reduced-feature),3.09,2.4351,0.9719,3.2242,2.508,0.9695,3.4405,2.6088,0.9722,95

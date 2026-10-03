@@ -1,0 +1,5 @@
+driver,rows,n,slope,se
+previous_usage,normal (|dev|<=12),6609,0.3513,0.0082
+previous_usage,extreme (|dev|>12),928,0.3688,0.007
+occupancy,normal (|dev|<=60),7182,0.0952,0.0018
+occupancy,extreme (|dev|>60),355,0.095,0.0035

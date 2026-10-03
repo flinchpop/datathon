@@ -1,0 +1,15 @@
+assumption,test,statistic,p-value / reference
+Linearity,Ramsey RESET (fitted^2 added),F=15.75,0.000
+Independence,Durbin-Watson (rows in id order),2.011,~2 means none
+Homoscedasticity,Breusch-Pagan LM,428.4,1.1e-13
+Homoscedasticity,"Residual SD, top / bottom fitted decile",3.56 / 2.31,ratio 1.54
+Normality,Jarque-Bera,11.5,0.0031
+Normality,Skew / kurtosis,-0.01 / 3.19,normal: 0 / 3
+No multicollinearity,VIF temperature,6.34,"<5 fine, >10 severe"
+No multicollinearity,VIF humidity,1.69,"<5 fine, >10 severe"
+No multicollinearity,VIF occupancy,3.70,"<5 fine, >10 severe"
+No multicollinearity,VIF previous_usage,5.01,"<5 fine, >10 severe"
+No multicollinearity,VIF cooling_deg,2.22,"<5 fine, >10 severe"
+No influential outliers,max Cook's D / # D>4/n,0.003 / 378,D>1 would be a concern
+Missing completely at random,AUC predicting 'row has a gap' from building/time/target,0.495,0.5 = unpredictable
+Missing completely at random,"Welch t-test, usage of gappy vs complete rows",t=0.54,0.588
