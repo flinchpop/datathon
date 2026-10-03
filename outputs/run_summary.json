@@ -1,0 +1,30 @@
+{
+  "threshold_rank_score": 0.9876640625,
+  "cv_flag_rate": 0.011016666666666666,
+  "test_flag_rate": 0.0115,
+  "test_mean_prob": 0.0949281521836951,
+  "n_test": 12000,
+  "n_flagged": 138,
+  "seeds": [
+    1000,
+    1001,
+    1002,
+    1003,
+    1004
+  ],
+  "members": [
+    "cat_d3_merch",
+    "cat_d3_full",
+    "xgb_d2_full_te",
+    "lgbm_d2_full_te",
+    "lr_full"
+  ],
+  "weights": {
+    "cat_d3_merch": 1.0,
+    "cat_d3_full": 1.0,
+    "xgb_d2_full_te": 0.75,
+    "lgbm_d2_full_te": 0.75,
+    "lr_full": 0.5
+  },
+  "secs": 1173.7721881866455
+}

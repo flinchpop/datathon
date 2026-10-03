@@ -1,7 +1,5 @@
 # Track 2 – Fraud Detection: Model Report
 
-> Scores and tables marked `TBD` are filled in from `outputs/` once the final run completes.
-
 ## 1. Problem understanding
 
 **Task.** Each row is a single card/wallet transaction with 10 attributes (amount, hour, merchant
@@ -84,7 +82,88 @@ different calibrations of a linear model vs. boosted trees. Each member is itsel
 
 ## 5. Results
 
-TBD – filled from `outputs/cv_results.csv`, `outputs/e*_*.csv`.
+All numbers are repeated stratified 5-fold CV (6 repeats, 30 fits), pooled per repeat, mean ± std over
+repeats. Fold-level std is ≈ 0.045 for every model, which is why paired comparisons on identical splits
+were used for every decision.
+
+### 5.1 Trial-and-error log (what moved the needle)
+
+| step | change | CV PR-AUC | Δ | keep? |
+|---|---|---|---|---|
+| 0 | XGBoost depth 2 on the 7 raw numeric columns (your original setup) | 0.198 | – | baseline |
+| 1 | + account-relative / velocity / maturity×device features (`basic`) | 0.196–0.210 (model-dependent) | ≈ 0 for trees, **+0.04 for LogReg** | yes |
+| 2 | + merchant-relative amounts (`amount_ratio_to_merchant`, dollar deltas, in-category z-score) | 0.207 | +0.009 (XGB) | yes |
+| 3 | + log/cyclic/interaction extras (`full` set) | 0.212 (XGB) / 0.213 (LGBM) / 0.212 (LogReg) | +0.005 | yes |
+| 4 | Out-of-fold target encoding of the 3 raw categoricals (m = 20) | 0.218 (XGB) / 0.217 (LGBM) | **+0.005** | yes |
+| 5 | Interaction target encodings (`country_merchant`, `merchant_channel`, `country_channel`) | 0.209 (XGB) / 0.214 (LGBM) / 0.214 (CatBoost) | **−0.005 … −0.010** | **no** |
+| 6 | Swap to CatBoost, native categoricals, depth 3, L2 = 10 | **0.2225** | +0.005 over best XGB | yes (2 members) |
+| 7 | CatBoost depth 2 / 4 / 6, L2 3 / 30, 1200 iters @ lr 0.015, Bernoulli subsample, rsm 0.6 | 0.214–0.224 | within noise or worse | keep depth 3 / L2 10 |
+| 8 | CatBoost `auto_class_weights` Balanced / SqrtBalanced | 0.197 / 0.204 | **−0.025 / −0.018** | **no** |
+| 9 | Importance weighting for covariate shift (full / √ weights) | −0.003…−0.009 / ±0.001 | hurts / neutral | **no** |
+| 10 | Merchant medians pooled over train+test | ±0.000 | neutral | no (train-only is simpler) |
+| 11 | Rank-average blend of CatBoost×2 + XGB + LGBM + LogReg, 5 seeds each | **0.2257 ± 0.006** | **+0.004 over best single, 6/6 repeats** | **final** |
+
+Take-aways: (i) categorical *interaction* encodings over-fit with 353 positives – the trees already learn
+`country × merchant` from the two base encodings; (ii) re-weighting the minority class destroys ranking
+quality – PR-AUC rewards a well-ordered score, not a shifted intercept; (iii) the only robust gains were
+*more diverse, well-regularised learners* rather than more features.
+
+### 5.2 Final ensemble (`outputs/cv_results.csv`)
+
+| member | features | PR-AUC | ROC-AUC | best F1 | recall @ best F1 | weight |
+|---|---|---|---|---|---|---|
+| CatBoost d3, native cats | `merchant` (22) + 3 cats | 0.2220 ± 0.007 | 0.773 | 0.302 | 0.228 | 1.00 |
+| CatBoost d3, native cats | `full` (36) + 3 cats | 0.2227 ± 0.008 | 0.770 | 0.298 | 0.252 | 1.00 |
+| XGBoost d2 | `full` + OOF target enc. | 0.2172 ± 0.005 | 0.764 | 0.297 | 0.243 | 0.75 |
+| LightGBM 4 leaves | `full` + OOF target enc. | 0.2182 ± 0.005 | 0.773 | 0.307 | 0.245 | 0.75 |
+| Logistic regression (balanced) | `full` | 0.2115 ± 0.004 | 0.763 | 0.294 | 0.235 | 0.50 |
+| **Rank-average blend** | | **0.2257 ± 0.006** | **0.775** | **0.306** | **0.247** | |
+
+### 5.3 Operating point (F1 / Recall)
+
+CV precision / recall / F1 of the blend as a function of the share of transactions flagged:
+
+| flagged | precision | recall | F1 |
+|---|---|---|---|
+| 0.5 % | 0.58 | 0.17 | 0.26 |
+| 1.0 % | 0.41 | 0.23 | **0.30** |
+| 1.1 % (CV-optimal) | 0.39 | 0.24 | 0.30 |
+| **1.5 % (submitted)** | 0.32 | 0.27 | 0.29 |
+| 2.0 % | 0.26 | 0.30 | 0.28 |
+| 2.5 % | 0.23 | 0.32 | 0.27 |
+| 5.0 % | 0.14 | 0.39 | 0.21 |
+
+The tree members' mean predicted probability on the test set is 2.2 % vs. a 1.77 % training base rate
+(1.25×), consistent with the adversarial-reweighting estimate (2.3 %). A higher base rate moves the
+F1-optimal cut to the right, so the submitted file flags **1.5 %** of test rows (180 of 12 000) – F1 is
+flat there in CV and recall is 15 % higher than at the strict CV optimum. Alternates at 1.1 % and 2.5 % are
+also written (`outputs/submission_*1_1pct*.csv`, `*2_5pct*.csv`).
+
+**Submission format.** `outputs/submission.csv` has `id, fraud` where `fraud` is the blended score mapped
+by a strictly increasing function onto [0, 1] such that `fraud ≥ 0.5` ⇔ *flagged*. Ranks are identical to
+the raw blend (Spearman = 1.0) so PR-AUC is unaffected, while a grader thresholding at 0.5 gets the intended
+operating point. `outputs/submission_binary.csv` is the same decision as 0/1.
+
+### 5.4 What the model relies on (gain importance)
+
+* **XGBoost (depth 2)**: `new_device_young_account` 28 %, `hi_risk_merchant_new_device` 21 %, `new_device`,
+  `transactions_last_1h`, `hi_risk_merchant`, `foreign_hi_risk`, `high_velocity_1h`, `night_new_device`.
+* **CatBoost**: `account_age`, `new_device`, `transaction_amount`/`log_amount`, `transactions_last_24h`,
+  `transactions_last_1h`, `amount_diff_merchant_median`, `transaction_channel`.
+* **LightGBM**: `age_per_txn`, `account_age`, `amount_diff_avg_spend`, the three target encodings,
+  `amount_diff_merchant_median`, `spend_last_24h`.
+
+In words: *a new device on a young account, buying in a high-risk category (luxury / cash transfer /
+electronics), often cross-border or at night, with a burst of transactions in the last hour and an amount
+far above both the account's and the merchant category's usual ticket.*
+
+### 5.5 Honest caveats
+
+* CV PR-AUC 0.226 vs. your hidden-set 0.200: the gap may be the shift in p(x) or genuine concept drift;
+  our shift experiments could only test the former. Expect hidden-set gains of the same order as CV gains
+  (+0.01–0.02 over your 0.200), not more.
+* With ≈ 265 expected positives in the hidden set, one leaderboard decimal (0.001) is far below the noise
+  floor (± 0.02); judge changes by *paired* CV, not by single submissions.
 
 ## 6. Reproducing
 
@@ -95,5 +174,6 @@ python3 experiments/e1_encodings.py      # target-encoding ablations
 python3 experiments/e2_catboost_native.py
 python3 experiments/e3_shift_weighting.py
 python3 experiments/e4_ensemble.py 6     # blend search on identical splits
-python3 run_final.py --seeds 5           # writes outputs/submission*.csv
+python3 run_final.py --seeds 5           # CV + full fit, writes outputs/submission_full.csv
+python3 make_submissions.py --flag-share 0.015   # final upload files
 ```

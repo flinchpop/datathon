@@ -57,3 +57,7 @@ print("\n=== RUN SUMMARY ===\n", json.dumps(summary, indent=2))
 print("\nTop features per member:")
 for n, v in res["importances"].items():
     if v is not None: print(f"  {n}: " + ", ".join(f"{i}={x:.3f}" for i, x in (v / v.sum()).head(8).items()))
+
+# ---- final upload files (monotone rescaling so that 0.5 <=> chosen operating point) ----
+import subprocess
+subprocess.run([sys.executable, "make_submissions.py"], check=True)
