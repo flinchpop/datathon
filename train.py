@@ -102,7 +102,7 @@ def main():
     p_test = ebm.predict_proba(test[RAW_FEATURES])[:, 1]
     sub = pd.DataFrame({ID: test[ID], "fraud_probability": p_test,
                         "fraud_prediction": (p_test >= threshold).astype(int)})
-    sub.to_csv(OUTPUT_DIR / "submission.csv", index=False)
+    sub.to_csv(OUTPUT_DIR / "submission.csv", index=False, float_format="%.8f")
     forecast = plug_in_metrics(p_test, threshold, args.beta)
     print(f"test: {sub.fraud_prediction.sum()} flagged ({sub.fraud_prediction.mean():.2%}); "
           f"model-implied fraud rate {p_test.mean():.4f}; plug-in recall {forecast['expected_recall']:.3f} "
