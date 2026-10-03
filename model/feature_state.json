@@ -1,0 +1,48 @@
+{
+  "categories": {
+    "merchant_category": [
+      "cash_transfer",
+      "electronics",
+      "entertainment",
+      "food_delivery",
+      "gaming",
+      "grocery",
+      "luxury",
+      "retail",
+      "transport",
+      "travel",
+      "utilities"
+    ],
+    "country": [
+      "AU",
+      "GB",
+      "ID",
+      "JP",
+      "MY",
+      "PH",
+      "SG",
+      "TH",
+      "US",
+      "VN"
+    ],
+    "transaction_channel": [
+      "bank_transfer",
+      "card_present",
+      "ecommerce",
+      "mobile_app"
+    ]
+  },
+  "merchant_median_amount": {
+    "cash_transfer": 261.71500000000003,
+    "electronics": 375.68499999999995,
+    "entertainment": 64.57,
+    "food_delivery": 29.75,
+    "gaming": 38.53,
+    "grocery": 47.61,
+    "luxury": 846.585,
+    "retail": 120.47,
+    "transport": 23.86,
+    "travel": 443.84000000000003,
+    "utilities": 110.87
+  }
+}

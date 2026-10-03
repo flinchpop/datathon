@@ -1,0 +1,64 @@
+{
+  "adversarial_auc": 0.6682888124999999,
+  "threshold": 0.095,
+  "f1_peak_threshold": 0.16,
+  "threshold_free": {
+    "cv": {
+      "pr_auc": 0.22619286768347005,
+      "roc_auc": 0.7789696355980507,
+      "best_f1": 0.30618070238542405
+    },
+    "shift_weighted_cv": {
+      "pr_auc": 0.3559718938965262,
+      "roc_auc": 0.8174861296148165,
+      "best_f1": 0.4372166500061247
+    },
+    "adversarial_holdout": {
+      "pr_auc": 0.3637154896068149,
+      "roc_auc": 0.8202996546441275,
+      "best_f1": 0.4507042253521127
+    }
+  },
+  "at_threshold": {
+    "cv": {
+      "precision": 0.2700512915384649,
+      "recall": 0.3021718602455146,
+      "f1": 0.2852037460556358,
+      "flag_rate": 0.01975
+    },
+    "shift_weighted_cv": {
+      "precision": 0.3179330251721464,
+      "recall": 0.4493354484504019,
+      "f1": 0.3723501492156247,
+      "flag_rate": 0.030784988662285167
+    },
+    "adversarial_holdout": {
+      "precision": 0.40625,
+      "recall": 0.4727272727272727,
+      "f1": 0.43697478991596644,
+      "flag_rate": 0.032
+    }
+  },
+  "feature_importance": {
+    "risk_signal_count": 0.29865,
+    "log_amount": 0.17676,
+    "new_device": 0.15386,
+    "transaction_channel": 0.14244,
+    "log_age": 0.11514,
+    "merchant_category": 0.09601,
+    "amount_vs_merchant": 0.08477,
+    "country": 0.06595,
+    "amount_vs_avg_24h": 0.06089,
+    "log_avg_spend_24h": 0.05775,
+    "log_spend_24h": 0.05705,
+    "txn_1h": 0.0548,
+    "txn_24h": 0.041,
+    "young_account": 0.03473,
+    "share_txn_last_1h": 0.03416,
+    "hour": 0.03002,
+    "high_risk_merchant": 0.02604,
+    "foreign": 0.02189,
+    "night": 0.00729,
+    "velocity_burst": 0.00546
+  }
+}

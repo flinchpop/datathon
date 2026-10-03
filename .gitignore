@@ -1,0 +1,5 @@
+# Competition data is not committed; put the Track 2 CSVs in data/ (see README).
+data/
+__pycache__/
+catboost_info/
+*.pyc
