@@ -1,0 +1,11 @@
+column,weight_%
+transaction_amount,21.4
+account_age,17.7
+new_device,14.6
+transaction_channel,10.4
+merchant_category,10.3
+transaction_hour,9.6
+spend_last_24h,5.1
+country,4.3
+transactions_last_1h,3.8
+transactions_last_24h,2.9

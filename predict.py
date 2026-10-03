@@ -1,58 +1,70 @@
-"""Score new transactions with the model saved by train_xgboost.py.
+"""Score new transactions with a saved model.
 
-Usage: python predict.py [input.csv] [output.csv]
+Usage: python predict.py [input.csv] [output.csv] [--model catboost|xgboost]
   input.csv  defaults to data/Track_2_Testing_Dataset.csv
   output.csv defaults to predictions.csv
+  --model    catboost (default, from train_catboost.py) or xgboost (from train_xgboost.py)
 
 The input needs the same columns as the training data (the `fraud` column is
-optional). Writes id, fraud_probability and fraud (0/1). If the input has a
-`fraud` column, it also reports how well the predictions match it.
+optional). Writes the submission format: id, prediction (fraud probability).
+If the input has a `fraud` column, it also reports ROC-AUC and PR-AUC.
 """
+import argparse
 import json
 import os
-import sys
 
+import numpy as np
 import pandas as pd
-import xgboost as xgb
-from sklearn.metrics import (
-    average_precision_score,
-    classification_report,
-    confusion_matrix,
-    roc_auc_score,
-)
+from sklearn.metrics import average_precision_score, roc_auc_score
 
-from train_xgboost import MODEL_DIR, TARGET, prepare_features
+TARGET = "fraud"
+
+
+def predict_catboost(df):
+    from catboost import CatBoostClassifier
+
+    import train_catboost as tc
+
+    with open(os.path.join(tc.MODEL_DIR, "metadata.json")) as f:
+        meta = json.load(f)
+    X = tc.prepare_features(df)[meta["features"]]
+    probas = []
+    for name in meta["model_files"]:
+        m = CatBoostClassifier()
+        m.load_model(os.path.join(tc.MODEL_DIR, name))
+        probas.append(m.predict_proba(X)[:, 1])
+    return np.mean(probas, axis=0)
+
+
+def predict_xgboost(df):
+    import xgboost as xgb
+
+    import train_xgboost as tx
+
+    with open(os.path.join(tx.MODEL_DIR, "metadata.json")) as f:
+        meta = json.load(f)
+    model = xgb.XGBClassifier()
+    model.load_model(os.path.join(tx.MODEL_DIR, "xgb_fraud.json"))
+    X = tx.prepare_features(df, meta["encoders"])[meta["features"]]
+    return model.predict_proba(X)[:, 1]
 
 
 def main():
-    in_path = sys.argv[1] if len(sys.argv) > 1 else "data/Track_2_Testing_Dataset.csv"
-    out_path = sys.argv[2] if len(sys.argv) > 2 else "predictions.csv"
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("input", nargs="?", default="data/Track_2_Testing_Dataset.csv")
+    parser.add_argument("output", nargs="?", default="predictions.csv")
+    parser.add_argument("--model", choices=["catboost", "xgboost"], default="catboost")
+    args = parser.parse_args()
 
-    with open(os.path.join(MODEL_DIR, "metadata.json")) as f:
-        meta = json.load(f)
-    model = xgb.XGBClassifier()
-    model.load_model(os.path.join(MODEL_DIR, "xgb_fraud.json"))
-
-    df = pd.read_csv(in_path)
-    X = prepare_features(df, meta["encoders"])[meta["features"]]
-    for col, levels in meta["encoders"]["categories"].items():
-        unseen = set(df[col].dropna()) - set(levels)
-        if unseen:
-            print(f"Warning: {col} has values not seen in training (treated as missing): {sorted(unseen)}")
-
-    proba = model.predict_proba(X)[:, 1]
-    out = pd.DataFrame({"id": df["id"], "fraud_probability": proba,
-                        "fraud": (proba >= meta["threshold"]).astype(int)})
-    out.to_csv(out_path, index=False)
-    print(f"Scored {len(out)} rows -> {out_path}  "
-          f"({out['fraud'].sum()} flagged as fraud at threshold {meta['threshold']:.3f})")
+    df = pd.read_csv(args.input)
+    proba = predict_catboost(df) if args.model == "catboost" else predict_xgboost(df)
+    pd.DataFrame({"id": df["id"], "prediction": proba}).to_csv(args.output, index=False)
+    print(f"Scored {len(df)} rows with {args.model} -> {args.output}")
 
     if TARGET in df.columns:
         y = df[TARGET]
-        print(f"\nEvaluation against true labels (n={len(y)}, frauds={int(y.sum())})")
-        print(f"ROC-AUC {roc_auc_score(y, proba):.4f}  PR-AUC {average_precision_score(y, proba):.4f}")
-        print("Confusion matrix [[TN FP] [FN TP]]:\n", confusion_matrix(y, out["fraud"]))
-        print(classification_report(y, out["fraud"], digits=4))
+        print(f"Evaluation against true labels (n={len(y)}, frauds={int(y.sum())}): "
+              f"ROC-AUC {roc_auc_score(y, proba):.4f}  PR-AUC {average_precision_score(y, proba):.4f}")
 
 
 if __name__ == "__main__":

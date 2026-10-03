@@ -1,0 +1,22 @@
+{
+  "model_type": "catboost",
+  "model_files": [
+    "catboost_seed0.cbm",
+    "catboost_seed1.cbm",
+    "catboost_seed2.cbm",
+    "catboost_seed3.cbm",
+    "catboost_seed4.cbm"
+  ],
+  "features": [
+    "transaction_amount",
+    "transaction_hour",
+    "transactions_last_24h",
+    "spend_last_24h",
+    "account_age",
+    "new_device",
+    "transactions_last_1h",
+    "merchant_category",
+    "country",
+    "transaction_channel"
+  ]
+}
