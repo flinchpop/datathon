@@ -1,9 +1,0 @@
-xgb_submitted (depth2, engineered features)   PR-AUC 0.1968±0.0010  test-weighted 0.2998  ROC 0.7722
-xgb_raw depth2 300t lr0.03                    PR-AUC 0.2046±0.0023  test-weighted 0.3086  ROC 0.7755
-xgb_raw depth1 600t lr0.05                    PR-AUC 0.2014±0.0008  test-weighted 0.3077  ROC 0.7787
-xgb_raw depth3 600t lr0.02                    PR-AUC 0.2081±0.0034  test-weighted 0.3227  ROC 0.7658
-xgb_raw depth2 test-likeness weighted         PR-AUC 0.1982±0.0050  test-weighted 0.3027  ROC 0.7714
-lightgbm 4 leaves                             PR-AUC 0.2065±0.0012  test-weighted 0.3162  ROC 0.7746
-spline logistic regression                    PR-AUC 0.1946±0.0032  test-weighted 0.2963  ROC 0.7721
-catboost depth4 800it lr0.03                  PR-AUC 0.2177±0.0054  test-weighted 0.3442  ROC 0.7665
-catboost depth3 800it lr0.05                  PR-AUC 0.2037±0.0077  test-weighted 0.3205  ROC 0.7651

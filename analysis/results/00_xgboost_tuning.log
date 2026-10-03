@@ -1,1 +1,0 @@
-{'max_depth': 2, 'n_estimators': 300, 'learning_rate': 0.03, 'scale_pos_weight': 1.0, 'pr_auc': np.float64(0.20571481877328107), 'roc_auc': np.float64(0.7779459370062913)}
