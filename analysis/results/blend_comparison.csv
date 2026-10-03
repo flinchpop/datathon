@@ -1,0 +1,15 @@
+blend,method,pr_auc,roc_auc,test_weighted_pr_auc
+"xgb_submitted (depth2, engineered features) + catboost depth4 800it lr0.03",rank average,0.2117,0.7724,0.3345
+"xgb_submitted (depth2, engineered features) + catboost depth4 800it lr0.03",probability average,0.2159,0.7733,0.3401
+xgb_raw depth3 600t lr0.02 + catboost depth4 800it lr0.03,rank average,0.2178,0.7698,0.3438
+xgb_raw depth3 600t lr0.02 + catboost depth4 800it lr0.03,probability average,0.22,0.7713,0.3456
+lightgbm 4 leaves + catboost depth4 800it lr0.03,rank average,0.2159,0.7731,0.3383
+lightgbm 4 leaves + catboost depth4 800it lr0.03,probability average,0.22,0.7744,0.3441
+xgb_raw depth3 600t lr0.02 + lightgbm 4 leaves + catboost depth4 800it lr0.03,rank average,0.2155,0.7723,0.3374
+xgb_raw depth3 600t lr0.02 + lightgbm 4 leaves + catboost depth4 800it lr0.03,probability average,0.2186,0.7733,0.3409
+catboost depth3 800it lr0.05 + catboost depth4 800it lr0.03,rank average,0.2127,0.7666,0.3367
+catboost depth3 800it lr0.05 + catboost depth4 800it lr0.03,probability average,0.2132,0.767,0.337
+spline logistic regression + catboost depth4 800it lr0.03,rank average,0.2102,0.7733,0.3292
+spline logistic regression + catboost depth4 800it lr0.03,probability average,0.2138,0.7747,0.3353
+xgb_raw depth3 600t lr0.02 + lightgbm 4 leaves + spline logistic regression + catboost depth4 800it lr0.03,rank average,0.211,0.774,0.3293
+xgb_raw depth3 600t lr0.02 + lightgbm 4 leaves + spline logistic regression + catboost depth4 800it lr0.03,probability average,0.2146,0.7751,0.3349

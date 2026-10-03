@@ -1,0 +1,14 @@
+model,pr_auc_mean,roc_auc_mean,test_weighted_pr_auc_mean,pr_auc_std,roc_auc_std,test_weighted_pr_auc_std
+"xgb_submitted (depth2, engineered features)",0.1968,0.7722,0.2998,0.001,0.0046,0.0035
+xgb_raw depth2 300t lr0.03,0.2046,0.7755,0.3086,0.0023,0.0034,0.0045
+xgb_raw depth1 600t lr0.05,0.2014,0.7787,0.3077,0.0008,0.0015,0.0023
+xgb_raw depth3 600t lr0.02,0.2081,0.7658,0.3227,0.0034,0.0031,0.0047
+xgb_raw depth2 test-likeness weighted,0.1982,0.7714,0.3027,0.005,0.0019,0.0172
+lightgbm 4 leaves,0.2065,0.7746,0.3162,0.0012,0.0031,0.0026
+spline logistic regression,0.1946,0.7721,0.2963,0.0032,0.0044,0.0063
+catboost depth4 800it lr0.03,0.2177,0.7665,0.3442,0.0054,0.0039,0.0079
+catboost depth3 800it lr0.05,0.2037,0.7651,0.3205,0.0077,0.0042,0.0168
+catboost depth5 800it lr0.03,0.215,0.7607,0.3383,0.0041,0.0031,0.0034
+catboost depth6 800it lr0.03,0.2118,0.7576,0.3299,0.006,0.005,0.0044
+catboost depth4 1500it lr0.02,0.2144,0.7623,0.3361,0.0034,0.0064,0.006
+catboost depth6 1500it lr0.015,0.2171,0.7611,0.3384,0.0047,0.0047,0.0042
