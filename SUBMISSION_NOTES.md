@@ -4,25 +4,29 @@
 
 * **Final model:** an equal-weight blend of **CatBoost** (depth 3, averaged over 3 seeds) and a
   **monotone-constrained XGBoost** (depth 3), trained on a small set of behavioural features.
-* **Decision threshold:** 0.095 on the blended fraud probability. This is the lowest threshold whose
-  out-of-fold F1 is within 5% of the best F1, so it gives up very little F1 for noticeably more recall.
+* **The 0/1 decision is cut with a plug-in rule:** on the file being scored, we pick the threshold that
+  maximises the *expected* PR-AUC of the 0/1 column, computed from the model's own calibrated
+  probabilities. On the Track 2 test set this is 0.271, flagging 151 rows (1.3%).
+* **What the leaderboard taught us (§7):** our first submission ranked frauds *better* than the baseline
+  but scored lower (0.1844 vs 0.1942). The only metric that reproduces that gap is **PR-AUC computed on
+  the submitted 0/1 labels**, which depends mostly on the threshold. Our first submission flagged 2.7% of
+  rows with a recall-leaning threshold, and that is what cost the points.
 * **Why this design:** the training data is small and noisy (353 frauds, 14% of which look exactly like
   normal transactions), and **the test set comes from a different distribution than the training set**.
-  We therefore chose the model that held up best when we *simulated* that shift, not the one that won
-  ordinary cross-validation.
+  We chose the model that held up best when we *simulated* that shift.
 
-| Validation scheme (see §4) | Metric | Original XGBoost | **Final model** | Change |
-|---|---|---|---|---|
-| Repeated 5-fold CV | PR-AUC | 0.205 | **0.226** | +10% |
-| Shift-weighted CV (re-weighted to look like test) | PR-AUC | 0.321 | **0.356** | +11% |
-| Test-like hold-out (train on least test-like 70%, validate on most test-like 30%) | PR-AUC | 0.304 | **0.364** | +20% |
-| Test-like hold-out, at each model's threshold | F1 / Recall | 0.365 / 0.267 | **0.437 / 0.473** | F1 +20%, recall +77% |
-| Shift-weighted CV, at each model's threshold | F1 / Recall | 0.378 / 0.370 | **0.372 / 0.449** | F1 −0.006, recall +21% |
-| Repeated 5-fold CV, at each model's threshold | F1 / Recall | 0.286 / 0.233 | **0.285 / 0.302** | F1 −0.001, recall +30% |
+| Out-of-fold metric | Original baseline | Team v2 (LB 0.2000) | **Our model, plug-in threshold** |
+|---|---|---|---|
+| PR-AUC of the probabilities, repeated CV | 0.205 | 0.205 | **0.226** |
+| PR-AUC of the probabilities, test-like hold-out | 0.304 | n/a | **0.364** |
+| PR-AUC of the 0/1 column, repeated CV | 0.104 | 0.105 | **0.117** |
+| PR-AUC of the 0/1 column, weighted to the test set's segment mix | 0.122 | 0.125 | **0.156** |
+| Precision / recall of the 0/1 column, repeated CV | 0.39 / 0.23 | 0.41 / 0.22 | **0.54** / 0.19 |
 
-(The original model's threshold is 0.145, its own best-F1 rule; ours is 0.095, see §5.) In short, PR-AUC
-improves everywhere. At the decision threshold, we keep in-distribution F1 while catching 20–30% more fraud,
-and on the most test-like data both F1 and recall improve substantially.
+The baseline and v2 use their own best-F1 thresholds; v2 is our reconstruction of the team's improved
+model from its description. Our model ranks best, and the plug-in threshold turns that into the best 0/1
+column. The cost is recall (§5): if the judges weight recall heavily, `predict.py --rule f1` gives a
+better-balanced cut.
 
 ---
 
@@ -41,9 +45,9 @@ on the rare positive class:
 | **F1** | Harmonic mean of precision and recall at our threshold | Penalises flagging everything to get recall. Every false alarm is a blocked customer or an extra verification step. |
 
 **Business framing.** The probability is a risk score. The threshold is a business lever: a bank would
-send high scores to step-up verification (OTP or call-back) rather than block them outright, so a false
-alarm costs little friction while a missed fraud costs money. That asymmetry is why we pick the
-**recall-leaning end** of the F1 plateau (§5) rather than the exact F1 maximum.
+send high scores to step-up verification (OTP or call-back) rather than block them outright. We keep
+the two jobs separate: the model's only job is to *rank* well (PR-AUC of the probabilities), and the
+threshold is chosen afterwards for whatever the 0/1 decision is judged on (§5).
 
 ## 2. What the data tells us
 
@@ -173,30 +177,39 @@ the test set does not (§2.5), we scored every model three ways (`validation.py`
 
 ## 5. Choosing the decision threshold
 
-The probability is turned into a 0/1 decision with a threshold chosen from **out-of-fold** predictions,
-never from the training fit itself, so the choice is not optimistic.
+**What the 0/1 column is judged on matters more than anything else in this section.** A 0/1 column has
+only one point on its precision-recall curve, so its "PR-AUC" is
+`recall × precision + (1 − recall) × fraud rate`. That rewards a *short, precise* list of alerts. F1 peaks
+a little lower, and recall alone rewards flagging everything.
 
-* The F1-vs-threshold curve is **flat near its peak**: in CV, F1 stays between 0.285 and 0.300 at every
-  threshold we checked from 0.095 to 0.25. With 353 frauds those points are statistically indistinguishable.
-* Within that plateau we take the **lowest** threshold whose F1 is within 5% of the maximum: **0.095**.
-  The F1 maximum itself is at 0.16. This trades almost no F1 for extra recall, consistent with the cost
-  asymmetry in §1. On the test-like hold-out, 0.095 gives the best F1 of all the operating points below.
-* A probability threshold, unlike a fixed top-k%, **adapts to the test set's risk mix**. The test set
-  contains more high-risk rows, so more of it gets flagged: 2.7% of test rows vs 2.0% of training rows.
+**Plug-in rule (default, `predict.py`).** If the probabilities are calibrated, flagging the top *k* rows
+of the file being scored gives an expected number of caught frauds equal to the sum of their
+probabilities. The expected total number of frauds is the sum over all rows. Expected precision, recall,
+F1 and 0/1-column PR-AUC therefore follow for every *k* without any labels, and we flag the *k* that
+maximises the expected 0/1-column PR-AUC. Two advantages over a fixed threshold:
+* It **adapts to the risk mix of the file being scored**. The test set is riskier than the training set,
+  and the rule sees that directly from the predicted probabilities.
+* It **needs no extra tuning data**, only calibration, which we verified (`reports/calibration.md`).
 
-Operating points (`reports/threshold_tradeoff.md`):
+On the test set it picks threshold 0.271 and flags 151 rows (1.3%), with expected precision 0.53 and
+recall 0.30. We checked the rule out-of-fold by applying it to test-sized 4,000-row chunks of the
+training predictions, exactly as `predict.py` applies it to the test set (`reports/threshold_tradeoff.md`):
 
-| threshold       |   CV flagged |   CV precision |   CV recall |   CV F1 |   shift-wtd flagged |   shift-wtd precision |   shift-wtd recall |   shift-wtd F1 |   test-like flagged |   test-like precision |   test-like recall |   test-like F1 |
-|:----------------|-------------:|---------------:|------------:|--------:|--------------------:|----------------------:|-------------------:|---------------:|--------------------:|----------------------:|-------------------:|---------------:|
-| 0.040           |        0.056 |          0.128 |       0.403 |   0.194 |               0.072 |                 0.165 |              0.543 |          0.253 |               0.087 |                 0.188 |              0.594 |          0.286 |
-| 0.060           |        0.034 |          0.175 |       0.342 |   0.232 |               0.049 |                 0.217 |              0.483 |          0.299 |               0.053 |                 0.279 |              0.539 |          0.368 |
-| 0.080           |        0.024 |          0.235 |       0.320 |   0.271 |               0.036 |                 0.278 |              0.463 |          0.347 |               0.038 |                 0.357 |              0.497 |          0.415 |
-| 0.095 (chosen)  |        0.020 |          0.270 |       0.302 |   0.285 |               0.031 |                 0.318 |              0.449 |          0.372 |               0.032 |                 0.406 |              0.473 |          0.437 |
-| 0.120           |        0.015 |          0.325 |       0.274 |   0.297 |               0.026 |                 0.362 |              0.424 |          0.391 |               0.022 |                 0.481 |              0.394 |          0.433 |
-| 0.160 (F1 peak) |        0.011 |          0.380 |       0.247 |   0.300 |               0.021 |                 0.411 |              0.404 |          0.407 |               0.017 |                 0.569 |              0.352 |          0.434 |
-| 0.250           |        0.007 |          0.491 |       0.201 |   0.285 |               0.015 |                 0.525 |              0.351 |          0.421 |               0.013 |                 0.617 |              0.303 |          0.407 |
+| how the 0/1 column is cut                     |   flagged |   precision |   recall |     F1 |   PR-AUC of 0/1 column |   mean threshold |
+|:----------------------------------------------|----------:|------------:|---------:|-------:|-----------------------:|-----------------:|
+| plug-in: max expected binary PR-AUC (default) |    0.0067 |      0.5124 |   0.1936 | 0.2796 |                 0.1154 |           0.2833 |
+| plug-in: max expected F1                      |    0.0118 |      0.3709 |   0.2484 | 0.2969 |                 0.1078 |           0.1586 |
+| fixed threshold 0.095                         |    0.0198 |      0.2683 |   0.3022 | 0.2836 |                 0.0953 |           0.095  |
+| fixed threshold 0.16                          |    0.0115 |      0.3777 |   0.2474 | 0.2982 |                 0.1088 |           0.16   |
+| fixed threshold 0.25                          |    0.0072 |      0.4889 |   0.2011 | 0.2842 |                 0.1147 |           0.25   |
+| fixed threshold 0.3                           |    0.006  |      0.5455 |   0.186  | 0.2769 |                 0.1179 |           0.3    |
+| fixed threshold 0.4                           |    0.0047 |      0.608  |   0.1615 | 0.2544 |                 0.1163 |           0.4    |
 
-Use `python predict.py --threshold T` to move along this curve.
+The plug-in rule matches the best fixed thresholds (0.25–0.30) without being told them. It beats our
+first submission's 0.095 cut by about 0.02 (+21%) on 0/1-column PR-AUC, at the cost of recall (0.19 vs
+0.30 in CV; expected 0.30 on the riskier test set). To favour F1 or recall instead:
+`python predict.py --rule f1` or `python predict.py --threshold 0.095`. `rethreshold.py` applies the same
+rule to any existing submission file.
 
 ## 6. Assumptions of the model (and how we checked them)
 
@@ -208,8 +221,8 @@ Use `python predict.py --threshold T` to move along this curve.
 | **Missing values are missing at random.** | Lets the trees treat NaN as "unknown" without inventing a meaning. | Fraud rates among missing rows sit near the base rate. We deliberately do not use missing-indicator features. |
 | **Monotone effects:** more velocity, larger amounts, new devices, night-time, riskier merchants and more signals never *reduce* risk, and older accounts never *increase* it. | Encoded as XGBoost monotone constraints | Matches the empirical shape functions of an interpretable GAM (EBM) fitted to the data, and standard fraud domain knowledge. |
 | **Features are available at decision time** (no leakage). | The model must work in real time. | Every feature comes from the transaction itself or the customer's *preceding* 1h/24h activity. There is no target encoding, and categorical encoders are fit inside each CV fold. |
-| **The probabilities are calibrated** (no resampling or class weights) | Lets one probability threshold carry over to a test set with a different risk mix | Checked with a reliability table (`reports/calibration.md`): OOF predicted and observed fraud rates agree in every score decile, e.g. 9.0% vs 8.5% in the top decile. |
-| **Missed fraud costs more than a false alarm** | Justifies the recall-leaning threshold | Configurable: `predict.py --threshold`. |
+| **The probabilities are calibrated** (no resampling or class weights) | The plug-in threshold rule reads expected frauds straight off the probabilities | Checked with a reliability table (`reports/calibration.md`): OOF predicted and observed fraud rates agree in every score decile, e.g. 9.0% vs 8.5% in the top decile. |
+| **The leaderboard scores the submitted 0/1 labels** | Drives the threshold choice | Strongly supported by the leaderboard result (§7). If it turns out to read the probabilities instead, the threshold does not affect the score at all and nothing is lost. `rethreshold.py` gives a one-submission test. |
 
 **Assumptions specific to the algorithms:**
 * **Gradient-boosted trees** make no assumption about linearity, feature scale or distribution, and handle
@@ -220,10 +233,38 @@ Use `python predict.py --threshold T` to move along this curve.
   the training rows. That holds here, since rows are independent and the ids carry no time signal (the
   fraud rate is flat across id deciles).
 
-## 7. Limitations and next steps
-* **The hidden-test score cannot be verified locally.** Our improvements are measured on the training
-  data under three validation schemes, including two that mimic the test shift. If the test labels follow a
-  *different* fraud mechanism (concept drift), no training-only method can fully anticipate it.
+## 7. What the leaderboard taught us
+
+Our first submission (threshold 0.095) scored **0.1844**, below the original baseline's **0.1942**,
+although every local test said it ranked frauds better. Instead of guessing, we tested explanations
+against that gap (`python leaderboard_check.py` → `reports/leaderboard_check.md`):
+
+| Explanation tested | Result |
+|---|---|
+| Covariate shift we had not modelled: re-weight validation rows to match the test set's exact mix of fraud-relevant segments (foreign × burst × young × new device × big amount × online) | Our model still ahead by +0.035 (± 0.013). **Rejected.** |
+| The test set has 4× more missing values: inject test-level missingness into validation folds | Every model moves by less than 0.005. **Rejected.** |
+| The leaderboard's "PR-AUC" is computed on the 0/1 column | Local gap −0.0102 vs leaderboard gap −0.0098. **Fits.** PR-AUC of the probabilities predicts the opposite sign (+0.021, about 2.9 paired standard errors from what was observed). |
+
+Our first submission flagged 326 rows (2.7%) against the baseline's 226. The extra alerts had lower
+precision, which costs more in a 0/1-column PR-AUC than the extra recall earns. This is a scoring
+artefact, not a ranking problem: compared at the *same* number of alerts, our model has the highest
+precision of the three at every alert budget we tried (0.4%–1.3% of rows).
+
+**How much of a leaderboard move is noise?** With about 260 frauds in 12,000 test rows, one submission's
+score has a bootstrap standard error of about 0.03. The *difference* between two similar submissions is
+much less noisy (paired standard error about 0.003–0.01), but steps of +0.001 to +0.003 are still within
+noise. We reconstructed the team's three v2 steps (dropping `share_of_24h_spend`, merchant-relative amount,
+absolute amount deltas plus a country × merchant risk encoding). Locally, after each cumulative step the out-of-fold
+PR-AUC sits +0.004, +0.003 and +0.000 above the baseline, all within about 1.5 standard errors. They are sensible features, but the
++0.006 leaderboard gain is not distinguishable from noise. The threshold effect is 3–4× larger.
+
+**Takeaway for the submission:** decide the 0/1 cut for the metric it is judged on, and treat small
+leaderboard differences as noise unless they are reproduced locally.
+
+## 8. Limitations and next steps
+* **The hidden-test score cannot be verified locally.** Our conclusions rest on out-of-fold evidence plus
+  the leaderboard results we have. If the leaderboard turns out to score the probabilities, the threshold
+  change is neutral and the remaining gap would point to concept drift in the test labels.
 * With a customer or card ID we would add per-customer history features (deviation from that customer's
   usual amount, merchants and hours) and graph features linking devices to accounts. These are the biggest
   real-world gains in fraud detection.
@@ -231,7 +272,7 @@ Use `python predict.py --threshold T` to move along this curve.
   fresh labels, and use the score in tiers (auto-approve, step-up verification, block) rather than as a
   single yes/no.
 
-## 8. Reproducing
+## 9. Reproducing
 
 ```bash
 pip install -r requirements.txt
@@ -239,5 +280,7 @@ pip install -r requirements.txt
 python analysis.py          # data findings      -> reports/data_analysis.md
 python compare_models.py    # model comparison   -> reports/model_comparison.md   (~15 min)
 python train.py             # final model        -> model/, reports/metrics.json, reports/threshold_tradeoff.md
-python predict.py           # submission file    -> predictions.csv
+python predict.py           # submission file    -> predictions.csv  (plug-in threshold; --rule f1 / --threshold T)
+python leaderboard_check.py # metric diagnosis   -> reports/leaderboard_check.md   (~5 min)
+python rethreshold.py their_submission.csv out.csv   # re-cut any submission's 0/1 column
 ```

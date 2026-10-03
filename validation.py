@@ -65,7 +65,45 @@ def metrics_at(y, p, threshold, w=None):
     precision = tp / (tp + fp) if tp + fp else 0.0
     recall = tp / (tp + fn) if tp + fn else 0.0
     f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
-    return {"precision": precision, "recall": recall, "f1": f1, "flag_rate": np.sum(w * pred) / np.sum(w)}
+    prevalence = (tp + fn) / np.sum(w)
+    return {"precision": precision, "recall": recall, "f1": f1, "flag_rate": np.sum(w * pred) / np.sum(w),
+            "binary_pr_auc": binary_pr_auc(precision, recall, prevalence)}
+
+
+def binary_pr_auc(precision, recall, prevalence):
+    """PR-AUC (average precision) of a 0/1 prediction column.
+
+    A 0/1 column has only two points on its PR curve: (recall, precision) at the
+    cut, and (1, prevalence) once everything is flagged. sklearn's
+    average_precision_score therefore reduces to recall*precision + (1-recall)*prevalence.
+    If a leaderboard computes "PR-AUC" from submitted labels, this is what it sees,
+    and it depends almost entirely on the threshold.
+    """
+    return recall * precision + (1 - recall) * prevalence
+
+
+def plugin_threshold(proba, metric="binary_pr_auc"):
+    """Threshold maximising the *expected* metric on the rows being scored.
+
+    For calibrated probabilities, flagging the top-k rows gives expected TP = sum of
+    their probabilities and expected frauds = sum of all probabilities, so expected
+    precision/recall (and hence F1 or binary PR-AUC) can be computed for every k
+    without labels. The best k adapts to the risk mix of the set being scored,
+    which matters because the test set is riskier than the training set.
+    """
+    p = np.sort(np.asarray(proba, dtype=float))[::-1]
+    k = np.arange(1, len(p) + 1)
+    tp = np.cumsum(p)
+    precision, recall, prevalence = tp / k, tp / p.sum(), p.mean()
+    if metric == "binary_pr_auc":
+        value = binary_pr_auc(precision, recall, prevalence)
+    elif metric == "f1":
+        value = 2 * precision * recall / (precision + recall)
+    else:
+        raise ValueError(metric)
+    i = int(np.argmax(value))
+    return float(p[i]), {"flagged": int(k[i]), "precision": float(precision[i]), "recall": float(recall[i]),
+                         metric: float(value[i]), "expected_frauds": float(p.sum())}
 
 
 def summary(y, p, w=None):
@@ -74,22 +112,6 @@ def summary(y, p, w=None):
     return {"pr_auc": average_precision_score(y, p, sample_weight=w),
             "roc_auc": roc_auc_score(y, p, sample_weight=w),
             "best_f1": float(np.max(f1))}
-
-
-def choose_threshold(y, oof_runs, tolerance=0.05):
-    """Decision threshold from out-of-fold predictions.
-
-    The F1-vs-threshold curve is flat near its peak (with ~350 frauds the top few
-    thresholds are statistically indistinguishable), so we take the *lowest*
-    threshold whose F1 is within `tolerance` of the best. That buys extra recall
-    (missed fraud is costlier than a false alarm, and recall is graded) for a
-    negligible F1 cost.
-    """
-    grid = np.round(np.arange(0.02, 0.50, 0.005), 4)
-    f1 = np.array([np.mean([metrics_at(y, p, t)["f1"] for p in oof_runs]) for t in grid])
-    best = f1.max()
-    t = grid[np.argmax(f1 >= (1 - tolerance) * best)]
-    return float(t), float(grid[np.argmax(f1)]), float(best)
 
 
 def cross_validate(fit_predict, train, y, weights, n_repeats=3):

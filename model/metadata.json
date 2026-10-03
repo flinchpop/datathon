@@ -1,4 +1,4 @@
 {
-  "threshold": 0.095,
-  "f1_peak_threshold": 0.16
+  "threshold": 0.2867956047685904,
+  "threshold_rule": "plug-in binary PR-AUC on OOF"
 }
