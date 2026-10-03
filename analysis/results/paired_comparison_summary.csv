@@ -1,0 +1,4 @@
+model,cv_pr_auc_mean,diff_vs_submitted_xgb,splits_better_than_submitted_xgb,test_weighted_pr_auc_mean
+catboost_depth4,0.211,0.0119,10,0.3157
+xgb_raw,0.203,0.0039,8,0.3112
+xgb_submitted,0.1991,0.0,0,0.301
