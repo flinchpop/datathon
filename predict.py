@@ -1,6 +1,8 @@
 """Score new transactions with the model saved by train_xgboost.py.
 
-Usage: python predict.py path/to/new_data.csv [output.csv]
+Usage: python predict.py [input.csv] [output.csv]
+  input.csv  defaults to data/Track_2_Testing_Dataset.csv
+  output.csv defaults to predictions.csv
 
 The input needs the same columns as the training data (the `fraud` column is
 optional). Writes id, fraud_probability and fraud (0/1). If the input has a
@@ -23,9 +25,7 @@ from train_xgboost import MODEL_DIR, TARGET, prepare_features
 
 
 def main():
-    if len(sys.argv) < 2:
-        sys.exit(__doc__)
-    in_path = sys.argv[1]
+    in_path = sys.argv[1] if len(sys.argv) > 1 else "data/Track_2_Testing_Dataset.csv"
     out_path = sys.argv[2] if len(sys.argv) > 2 else "predictions.csv"
 
     with open(os.path.join(MODEL_DIR, "metadata.json")) as f:
