@@ -38,13 +38,17 @@ for fs in ["merchant", "full"]:
         print(f"[{fs}] cats={cs} base", flush=True)
         r = run(fs, cs, base); rows.append(dict(feature_set=fs, cats=cs, params=str(base), **r))
 
-# depth / lr / l2 sweep on the better combo (full + raw3+inter assumed; re-evaluated anyway)
-for depth in [2, 3, 4, 5, 6]:
-    for lr, iters in [(0.03, 600), (0.015, 1200)]:
-        for l2 in [3, 10, 30]:
-            p = dict(iterations=iters, depth=depth, learning_rate=lr, l2_leaf_reg=l2)
-            print(f"[merchant] cats=raw3+inter {p}", flush=True)
-            r = run("merchant", "raw3+inter", p, n_repeats=4); rows.append(dict(feature_set="merchant", cats="raw3+inter", params=str(p), **r))
+# targeted sweep on merchant + raw3 (cheaper CTRs); +inter is compared via the base runs above
+for depth in [2, 3, 4, 6]:
+    for l2 in [3, 10, 30]:
+        p = dict(iterations=600, depth=depth, learning_rate=0.03, l2_leaf_reg=l2)
+        print(f"[merchant] cats=raw3 {p}", flush=True)
+        r = run("merchant", "raw3", p, n_repeats=4); rows.append(dict(feature_set="merchant", cats="raw3", params=str(p), **r))
+for extra in [dict(auto_class_weights="Balanced"), dict(auto_class_weights="SqrtBalanced"), dict(iterations=1200, learning_rate=0.015),
+              dict(bootstrap_type="Bernoulli", subsample=0.8), dict(rsm=0.6)]:
+    p = dict(iterations=600, depth=3, learning_rate=0.03, l2_leaf_reg=10); p.update(extra)
+    print(f"[merchant] cats=raw3 {p}", flush=True)
+    r = run("merchant", "raw3", p, n_repeats=4); rows.append(dict(feature_set="merchant", cats="raw3", params=str(p), **r))
 
 res = pd.DataFrame(rows).sort_values("pr_auc", ascending=False)
 print("\n=== E2 SUMMARY ===\n", res.round(4).to_string(index=False))

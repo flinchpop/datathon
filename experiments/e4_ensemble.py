@@ -13,15 +13,16 @@ from src.features import TE_COLS_BASE, TE_COLS_INTER
 df = pd.read_csv("data/train.csv"); y = df.fraud.values
 NREP = int(sys.argv[1]) if len(sys.argv) > 1 else 6
 TE = TE_COLS_BASE + TE_COLS_INTER
-CATS = ["merchant_category", "country", "transaction_channel", "country_merchant", "merchant_channel", "country_channel"]
+CATS = ["merchant_category", "country", "transaction_channel"]   # interactions hurt in E1/E2 -> dropped
+TEB = TE_COLS_BASE
 
 members = {
-    "lr_full_te":      dict(make_model=lambda s: make_lr(s, C=0.1), feature_set="full", te_cols=TE),
-    "xgb_d2_merch_te": dict(make_model=lambda s: make_xgb(s), feature_set="merchant", te_cols=TE),
-    "lgbm_d2_merch_te":dict(make_model=lambda s: make_lgbm(s), feature_set="merchant", te_cols=TE),
-    "cat_d3_merch":    dict(make_model=lambda s: make_cat(s), feature_set="merchant", cat_cols=CATS),
-    "cat_d3_full":     dict(make_model=lambda s: make_cat(s), feature_set="full", cat_cols=CATS),
-    "cat_d4_merch":    dict(make_model=lambda s: make_cat(s, depth=4, l2_leaf_reg=30), feature_set="merchant", cat_cols=CATS),
+    "lr_full":          dict(make_model=lambda s: make_lr(s, C=0.1), feature_set="full"),
+    "xgb_d2_full_te":   dict(make_model=lambda s: make_xgb(s), feature_set="full", te_cols=TEB),
+    "lgbm_d2_full_te":  dict(make_model=lambda s: make_lgbm(s), feature_set="full", te_cols=TEB),
+    "cat_d3_merch":     dict(make_model=lambda s: make_cat(s), feature_set="merchant", cat_cols=CATS),
+    "cat_d3_full":      dict(make_model=lambda s: make_cat(s), feature_set="full", cat_cols=CATS),
+    "cat_d4_merch_l230":dict(make_model=lambda s: make_cat(s, depth=4, l2_leaf_reg=30), feature_set="merchant", cat_cols=CATS),
 }
 oofs = {}
 for name, cfg in members.items():
