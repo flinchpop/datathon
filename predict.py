@@ -34,8 +34,8 @@ def main():
     model.load_model(os.path.join(MODEL_DIR, "xgb_fraud.json"))
 
     df = pd.read_csv(in_path)
-    X = prepare_features(df, meta["categories"])[meta["features"]]
-    for col, levels in meta["categories"].items():
+    X = prepare_features(df, meta["encoders"])[meta["features"]]
+    for col, levels in meta["encoders"]["categories"].items():
         unseen = set(df[col].dropna()) - set(levels)
         if unseen:
             print(f"Warning: {col} has values not seen in training (treated as missing): {sorted(unseen)}")

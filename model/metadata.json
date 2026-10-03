@@ -1,37 +1,73 @@
 {
-  "threshold": 0.2560643255710602,
-  "categories": {
-    "merchant_category": [
-      "cash_transfer",
-      "electronics",
-      "entertainment",
-      "food_delivery",
-      "gaming",
-      "grocery",
-      "luxury",
-      "retail",
-      "transport",
-      "travel",
-      "utilities"
-    ],
-    "country": [
-      "AU",
-      "GB",
-      "ID",
-      "JP",
-      "MY",
-      "PH",
-      "SG",
-      "TH",
-      "US",
-      "VN"
-    ],
-    "transaction_channel": [
-      "bank_transfer",
-      "card_present",
-      "ecommerce",
-      "mobile_app"
-    ]
+  "threshold": 0.1447199583053589,
+  "encoders": {
+    "categories": {
+      "merchant_category": [
+        "cash_transfer",
+        "electronics",
+        "entertainment",
+        "food_delivery",
+        "gaming",
+        "grocery",
+        "luxury",
+        "retail",
+        "transport",
+        "travel",
+        "utilities"
+      ],
+      "country": [
+        "AU",
+        "GB",
+        "ID",
+        "JP",
+        "MY",
+        "PH",
+        "SG",
+        "TH",
+        "US",
+        "VN"
+      ],
+      "transaction_channel": [
+        "bank_transfer",
+        "card_present",
+        "ecommerce",
+        "mobile_app"
+      ]
+    },
+    "risk": {
+      "merchant_category": {
+        "cash_transfer": 0.04643572351421188,
+        "electronics": 0.03868011435832275,
+        "entertainment": 0.010214481811942348,
+        "food_delivery": 0.01651762956669499,
+        "gaming": 0.015754139668826495,
+        "grocery": 0.007710868362831858,
+        "luxury": 0.050129716981132076,
+        "retail": 0.009763296869105998,
+        "transport": 0.008979277800574477,
+        "travel": 0.02349868881118881,
+        "utilities": 0.012190374003678724
+      },
+      "country": {
+        "AU": 0.028205835962145112,
+        "GB": 0.03041891891891892,
+        "ID": 0.0391938202247191,
+        "JP": 0.032135416666666666,
+        "MY": 0.014809803921568627,
+        "PH": 0.03309429477020602,
+        "SG": 0.013080788212574208,
+        "TH": 0.017121757925072048,
+        "US": 0.030797442799461644,
+        "VN": 0.035631720430107525
+      },
+      "transaction_channel": {
+        "bank_transfer": 0.028111947547353085,
+        "card_present": 0.010206174886033982,
+        "ecommerce": 0.02391263271549397,
+        "mobile_app": 0.016829279969360397
+      }
+    },
+    "prior": 0.01765
   },
   "features": [
     "transaction_amount",
@@ -44,7 +80,24 @@
     "account_age",
     "new_device",
     "transactions_last_1h",
-    "amount_vs_avg_24h",
-    "share_of_24h_spend"
+    "transaction_amount_missing",
+    "transaction_hour_missing",
+    "transactions_last_24h_missing",
+    "spend_last_24h_missing",
+    "account_age_missing",
+    "new_device_missing",
+    "transactions_last_1h_missing",
+    "merchant_category_missing",
+    "country_missing",
+    "transaction_channel_missing",
+    "avg_spend_per_txn_24h",
+    "spike_ratio",
+    "share_of_24h_spend",
+    "urgency_ratio",
+    "is_high_risk_merchant",
+    "is_new_account",
+    "merchant_category_risk",
+    "country_risk",
+    "transaction_channel_risk"
   ]
 }
