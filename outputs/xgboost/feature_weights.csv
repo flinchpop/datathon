@@ -1,0 +1,30 @@
+feature,group,weight_train_%,weight_test_%,gain_share_%
+account_age,original column,14.85,14.47,5.38
+transaction_amount,original column,13.95,13.86,5.79
+new_device,original column,13.94,14.65,17.75
+merchant_category,original column,10.83,9.8,3.69
+transaction_hour,original column,7.8,7.6,2.27
+country,original column,6.17,6.21,2.42
+transaction_channel,original column,6.06,5.96,2.48
+transactions_last_1h,original column,4.44,4.67,12.37
+spike_ratio,ratio (engineered),3.79,3.47,1.76
+spend_last_24h,original column,3.67,3.6,5.91
+transactions_last_24h,original column,3.43,4.62,15.11
+share_of_24h_spend,ratio (engineered),2.15,1.94,1.47
+merchant_category_risk,risk score (engineered),2.1,2.05,4.52
+transaction_channel_risk,risk score (engineered),1.95,1.96,4.31
+avg_spend_per_txn_24h,ratio (engineered),1.61,1.77,1.44
+country_risk,risk score (engineered),1.28,1.44,3.17
+urgency_ratio,ratio (engineered),1.2,1.22,1.2
+is_high_risk_merchant,flag (engineered),0.77,0.71,8.98
+transactions_last_24h_missing,missing flag (engineered),0.0,0.0,0.0
+transaction_amount_missing,missing flag (engineered),0.0,0.0,0.0
+transaction_hour_missing,missing flag (engineered),0.0,0.0,0.0
+transaction_channel_missing,missing flag (engineered),0.0,0.0,0.0
+country_missing,missing flag (engineered),0.0,0.0,0.0
+merchant_category_missing,missing flag (engineered),0.0,0.0,0.0
+transactions_last_1h_missing,missing flag (engineered),0.0,0.0,0.0
+account_age_missing,missing flag (engineered),0.0,0.0,0.0
+new_device_missing,missing flag (engineered),0.0,0.0,0.0
+spend_last_24h_missing,missing flag (engineered),0.0,0.0,0.0
+is_new_account,flag (engineered),0.0,0.0,0.0

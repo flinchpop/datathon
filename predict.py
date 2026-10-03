@@ -1,9 +1,10 @@
 """Score new transactions with a saved model.
 
-Usage: python predict.py [input.csv] [output.csv] [--model catboost|xgboost]
+Usage: python predict.py [input.csv] [output.csv] [--model xgboost|catboost]
   input.csv  defaults to data/Track_2_Testing_Dataset.csv
   output.csv defaults to predictions.csv
-  --model    catboost (default, from train_catboost.py) or xgboost (from train_xgboost.py)
+  --model    xgboost (default, from train_xgboost.py; leaderboard 0.19096) or
+             catboost (from train_catboost.py; leaderboard 0.18772)
 
 The input needs the same columns as the training data (the `fraud` column is
 optional). Writes the submission format: id, prediction (fraud probability).
@@ -53,7 +54,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("input", nargs="?", default="data/Track_2_Testing_Dataset.csv")
     parser.add_argument("output", nargs="?", default="predictions.csv")
-    parser.add_argument("--model", choices=["catboost", "xgboost"], default="catboost")
+    parser.add_argument("--model", choices=["xgboost", "catboost"], default="xgboost")
     args = parser.parse_args()
 
     df = pd.read_csv(args.input)

@@ -1,7 +1,9 @@
 """Train an XGBoost fraud classifier on the Track 2 training dataset.
 
 Evaluates the model (5-fold CV + hold-out), then fits a final model on all rows
-and saves it to model/ for use by predict.py.
+and saves it to model/ for use by predict.py. Intermediate results (CV scores,
+out-of-fold predictions, the training feature matrix, risk scores, feature
+importance) are written to outputs/xgboost/.
 
 Usage: python train_xgboost.py [path/to/Track_2_Training_Dataset.csv]
 """
@@ -29,6 +31,7 @@ SEED = 42
 
 
 MODEL_DIR = "model"
+OUTPUT_DIR = os.path.join("outputs", "xgboost")
 RAW_NUMERIC = ["transaction_amount", "transaction_hour", "transactions_last_24h", "spend_last_24h",
                "account_age", "new_device", "transactions_last_1h"]
 HIGH_RISK_MERCHANTS = ["luxury", "cash_transfer", "electronics"]
@@ -147,14 +150,19 @@ def main():
     # rows' labels never influence their own features.
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
     oof = np.zeros(len(y))
+    cv_rows = []
     for fold, (tr, va) in enumerate(skf.split(df, y), 1):
         X_tr, enc = build_train(df.iloc[tr], y.iloc[tr])
         m = make_model()
         m.fit(X_tr, y.iloc[tr])
         oof[va] = m.predict_proba(prepare_features(df.iloc[va], enc))[:, 1]
-        print(f"Fold {fold}: ROC-AUC {roc_auc_score(y.iloc[va], oof[va]):.4f}  "
-              f"PR-AUC {average_precision_score(y.iloc[va], oof[va]):.4f}")
-    print(f"CV (OOF)  ROC-AUC {roc_auc_score(y, oof):.4f}  PR-AUC {average_precision_score(y, oof):.4f}")
+        cv_rows.append({"fold": fold, "rows": len(va), "frauds": int(y.iloc[va].sum()),
+                        "roc_auc": roc_auc_score(y.iloc[va], oof[va]),
+                        "pr_auc": average_precision_score(y.iloc[va], oof[va])})
+        print(f"Fold {fold}: ROC-AUC {cv_rows[-1]['roc_auc']:.4f}  PR-AUC {cv_rows[-1]['pr_auc']:.4f}")
+    cv_rows.append({"fold": "all (out-of-fold)", "rows": len(y), "frauds": int(y.sum()),
+                    "roc_auc": roc_auc_score(y, oof), "pr_auc": average_precision_score(y, oof)})
+    print(f"CV (OOF)  ROC-AUC {cv_rows[-1]['roc_auc']:.4f}  PR-AUC {cv_rows[-1]['pr_auc']:.4f}")
 
     # Hold-out evaluation: decision threshold chosen on a validation slice of the
     # training part, then reported on the untouched test set.
@@ -175,7 +183,7 @@ def main():
     print(classification_report(y_te, pred, digits=4))
 
     imp = pd.Series(model.get_booster().get_score(importance_type="gain")).sort_values(ascending=False)
-    print("Feature importance (gain):")
+    print("Feature importance (gain, hold-out model):")
     print((imp / imp.sum()).round(4).to_string())
 
     # Final model: fit on every row. The threshold comes from the CV out-of-fold
@@ -191,6 +199,31 @@ def main():
                    "features": list(X.columns)}, f, indent=2)
     print(f"\nSaved final model (all {len(X)} rows) to {MODEL_DIR}/  "
           f"threshold {final_thr:.3f} (OOF F1 {oof_f1:.3f})")
+
+    # Intermediate results.
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    pd.DataFrame(cv_rows).round(4).to_csv(os.path.join(OUTPUT_DIR, "cv_fold_scores.csv"), index=False)
+    pd.DataFrame({"id": df["id"], "fraud": y, "oof_prediction": oof}).to_csv(
+        os.path.join(OUTPUT_DIR, "oof_predictions.csv"), index=False)
+    pd.DataFrame({"id": df_te["id"], "fraud": y_te, "prediction": proba, "flagged": pred}).to_csv(
+        os.path.join(OUTPUT_DIR, "holdout_predictions.csv"), index=False)
+    X.assign(id=df["id"], fraud=y)[["id", "fraud"] + list(X.columns)].to_csv(
+        os.path.join(OUTPUT_DIR, "train_features.csv"), index=False)
+    risk_rows = []
+    for col in CATEGORICAL:
+        stats = y.groupby(df[col]).agg(["count", "sum"])
+        for level, r in stats.iterrows():
+            risk_rows.append({"column": col, "value": level, "rows": int(r["count"]), "frauds": int(r["sum"]),
+                              "raw_fraud_rate": r["sum"] / r["count"], "risk_score": enc["risk"][col][str(level)]})
+        risk_rows.append({"column": col, "value": "(missing or unseen)", "risk_score": enc["prior"]})
+    pd.DataFrame(risk_rows).round(5).to_csv(os.path.join(OUTPUT_DIR, "risk_scores.csv"), index=False)
+    gain = pd.Series(final.get_booster().get_score(importance_type="gain")).reindex(X.columns).fillna(0)
+    cover = pd.Series(final.get_booster().get_score(importance_type="cover")).reindex(X.columns).fillna(0)
+    splits = pd.Series(final.get_booster().get_score(importance_type="weight")).reindex(X.columns).fillna(0)
+    pd.DataFrame({"gain_share_%": gain / gain.sum() * 100, "times_used_in_splits": splits.astype(int),
+                  "avg_cover": cover}).sort_values("gain_share_%", ascending=False).round(3).to_csv(
+        os.path.join(OUTPUT_DIR, "feature_importance_gain.csv"), index_label="feature")
+    print(f"Wrote intermediate results to {OUTPUT_DIR}/")
 
 
 if __name__ == "__main__":

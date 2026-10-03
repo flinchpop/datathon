@@ -8,8 +8,8 @@ averaged over the seed models in model_catboost/.
      average contribution, shown as an odds multiplier (x2.0 = doubles the fraud odds
      relative to an average transaction, x0.5 = halves them).
 
-Usage: python explain_model.py [path/to/Track_2_Training_Dataset.csv]
-Writes outputs/column_weights.csv and outputs/value_effects.csv.
+Usage: python explain_catboost.py [path/to/Track_2_Training_Dataset.csv]
+Writes outputs/catboost/column_weights.csv and outputs/catboost/value_effects.csv.
 """
 import json
 import os
@@ -93,10 +93,11 @@ def main():
             t = t.sort_values("odds_multiplier", ascending=False)
         print(f"{c}:\n{t.to_string(index=False)}\n")
 
-    os.makedirs("outputs", exist_ok=True)
-    col.to_csv("outputs/column_weights.csv", header=True, index_label="column")
-    effects.to_csv("outputs/value_effects.csv", index=False)
-    print("Wrote outputs/column_weights.csv and outputs/value_effects.csv")
+    out_dir = os.path.join("outputs", "catboost")
+    os.makedirs(out_dir, exist_ok=True)
+    col.to_csv(os.path.join(out_dir, "column_weights.csv"), header=True, index_label="column")
+    effects.to_csv(os.path.join(out_dir, "value_effects.csv"), index=False)
+    print(f"Wrote column_weights.csv and value_effects.csv to {out_dir}/")
 
 
 if __name__ == "__main__":

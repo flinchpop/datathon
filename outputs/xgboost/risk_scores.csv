@@ -1,0 +1,29 @@
+column,value,rows,frauds,raw_fraud_rate,risk_score
+merchant_category,cash_transfer,1498.0,71.0,0.0474,0.04644
+merchant_category,electronics,1524.0,60.0,0.03937,0.03868
+merchant_category,entertainment,1407.0,14.0,0.00995,0.01021
+merchant_category,food_delivery,2304.0,38.0,0.01649,0.01652
+merchant_category,gaming,1339.0,21.0,0.01568,0.01575
+merchant_category,grocery,3566.0,27.0,0.00757,0.00771
+merchant_category,luxury,586.0,31.0,0.0529,0.05013
+merchant_category,retail,2601.0,25.0,0.00961,0.00976
+merchant_category,transport,2387.0,21.0,0.0088,0.00898
+merchant_category,travel,1094.0,26.0,0.02377,0.0235
+merchant_category,utilities,1581.0,19.0,0.01202,0.01219
+merchant_category,(missing or unseen),,,,0.01765
+country,AU,584.0,17.0,0.02911,0.02821
+country,GB,505.0,16.0,0.03168,0.03042
+country,ID,840.0,34.0,0.04048,0.03919
+country,JP,382.0,13.0,0.03403,0.03214
+country,MY,1225.0,18.0,0.01469,0.01481
+country,PH,581.0,20.0,0.03442,0.03309
+country,SG,13931.0,182.0,0.01306,0.01308
+country,TH,644.0,11.0,0.01708,0.01712
+country,US,693.0,22.0,0.03175,0.0308
+country,VN,508.0,19.0,0.0374,0.03563
+country,(missing or unseen),,,,0.01765
+transaction_channel,bank_transfer,2009.0,57.0,0.02837,0.02811
+transaction_channel,card_present,7189.0,73.0,0.01015,0.01021
+transaction_channel,ecommerce,5507.0,132.0,0.02397,0.02391
+transaction_channel,mobile_app,5172.0,87.0,0.01682,0.01683
+transaction_channel,(missing or unseen),,,,0.01765

@@ -1,0 +1,15 @@
+column,includes,weight_train_%,weight_test_%
+account_age,"account_age, account_age_missing, is_new_account",15.11,14.75
+transaction_amount,"transaction_amount, transaction_amount_missing",14.19,14.13
+new_device,"new_device, new_device_missing",14.19,14.93
+merchant_category,"merchant_category, merchant_category_missing, is_high_risk_merchant, merchant_category_risk",13.28,12.3
+transaction_channel,"transaction_channel, transaction_channel_missing, transaction_channel_risk",8.04,7.72
+transaction_hour,"transaction_hour, transaction_hour_missing",7.94,7.74
+country,"country, country_missing, country_risk",6.58,6.72
+transactions_last_1h,"transactions_last_1h, transactions_last_1h_missing",4.52,4.76
+spike_ratio,spike_ratio,3.85,3.54
+spend_last_24h,"spend_last_24h, spend_last_24h_missing",3.74,3.67
+transactions_last_24h,"transactions_last_24h, transactions_last_24h_missing",3.49,4.71
+share_of_24h_spend,share_of_24h_spend,2.19,1.97
+avg_spend_per_txn_24h,avg_spend_per_txn_24h,1.64,1.81
+urgency_ratio,urgency_ratio,1.22,1.25
