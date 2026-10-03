@@ -33,7 +33,7 @@ MEMBERS = {
     "lgbm_d2_full_te": dict(make_model=lambda s: make_lgbm(s, threads=T), feature_set="full", te_cols=TE_COLS_BASE),
     "lr_full":         dict(make_model=lambda s: make_lr(s, C=0.1), feature_set="full"),
 }
-WEIGHTS = {"cat_d3_merch": 1.0, "cat_d3_full": 1.0, "xgb_d2_full_te": 1.0, "lgbm_d2_full_te": 1.0, "lr_full": 1.0}
+WEIGHTS = {"cat_d3_merch": 1.0, "cat_d3_full": 1.0, "xgb_d2_full_te": 0.75, "lgbm_d2_full_te": 0.75, "lr_full": 0.5}
 
 seeds = [1000 + i for i in range(args.seeds)]
 res = run_pipeline(train, test, MEMBERS, WEIGHTS, seeds, n_repeats_cv=args.cv_repeats, out_dir="outputs")
