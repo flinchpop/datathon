@@ -34,6 +34,9 @@ Engineered features (computed after imputation):
   log_amount, log_spend_24h  log1p of transaction_amount / spend_last_24h
   zero_spend_with_txns       spend_last_24h == 0 while transactions_last_24h >= 1
   hour_sin, hour_cos         transaction_hour on a 24h circle (23:00 sits next to 00:00)
+  account_age_capped         account_age at the training maximum (4000 looks like a ceiling)
+  log_amount_to_avg_ratio    log1p of amount_to_avg_ratio (the raw ratio reaches ~2700)
+  log_account_age            log1p of account_age
 """
 import argparse
 import json
@@ -86,6 +89,7 @@ def fit_stats(df):
     stats["median_spend_per_txn_24h"] = float(
         (d["spend_last_24h"] / d["transactions_last_24h"]).median())
     stats["young_account_days"] = float(df["account_age"].dropna().quantile(0.2))
+    stats["account_age_cap"] = float(df["account_age"].max())
     return stats
 
 
@@ -104,6 +108,9 @@ def add_features(df, stats):
         (df["spend_last_24h"] == 0) & (df["transactions_last_24h"] >= 1)).astype(int)
     df["hour_sin"] = np.sin(2 * np.pi * df["transaction_hour"] / 24)
     df["hour_cos"] = np.cos(2 * np.pi * df["transaction_hour"] / 24)
+    df["account_age_capped"] = (df["account_age"] >= stats["account_age_cap"]).astype(int)
+    df["log_amount_to_avg_ratio"] = np.log1p(df["amount_to_avg_ratio"])
+    df["log_account_age"] = np.log1p(df["account_age"])
 
 
 def fill(df, target, values):
@@ -145,6 +152,45 @@ def run_cycle(df, stats, last_cycle):
             if n:
                 filled[f"   {col} (whole-column fallback)"] = n
     return filled
+
+
+def clean(df, stats, verbose=True):
+    """Impute every missing cell with `stats`, then add the derived columns. Returns a new frame."""
+    log = print if verbose else (lambda *a, **k: None)
+    df = df.copy()
+    for col in IMPUTED_COLS:
+        df[f"{col}_was_missing"] = df[col].isna().astype(int)
+
+    for cycle in range(1, MAX_CYCLES + 1):
+        before = int(df[IMPUTED_COLS].isna().sum().sum())
+        log(f"\n=== Currently on cycle {cycle} of {MAX_CYCLES} (missing cells at start: {before}) ===")
+        for rule, n in run_cycle(df, stats, last_cycle=cycle == MAX_CYCLES).items():
+            if n:
+                log(f"  {rule}: filled {n}")
+        after = int(df[IMPUTED_COLS].isna().sum().sum())
+        log(f"  Cycle {cycle} done: {before - after} cells filled, {after} still missing")
+        if after == 0:
+            log("  No missing cells left, so no further cycles are needed.")
+            break
+
+    # New feature: average amount spent per transaction over the last 24h.
+    zero = df["transactions_last_24h"] == 0
+    df["avg_spend_per_txn_24h"] = (df["spend_last_24h"] / df["transactions_last_24h"]).where(
+        ~zero, df["transaction_amount"])
+    log(f"\nCreated avg_spend_per_txn_24h "
+        f"({int(zero.sum())} rows with transactions_last_24h == 0 use transaction_amount instead)")
+
+    for col in INT_COLS:
+        if df[col].notna().all():
+            df[col] = df[col].round().astype(int)
+
+    if df[IMPUTED_COLS].notna().all().all():
+        add_features(df, stats)
+        log(f"Added engineered features (young account = account_age < "
+            f"{stats['young_account_days']:.0f} days)")
+    else:
+        log("Skipped engineered features because some cells are still missing")
+    return df
 
 
 def report_anomalies(df):
@@ -195,38 +241,7 @@ def main():
 
     print("\nMissing values before imputation:")
     print(df.isna().sum()[lambda s: s > 0].to_string())
-    for col in IMPUTED_COLS:
-        df[f"{col}_was_missing"] = df[col].isna().astype(int)
-
-    for cycle in range(1, MAX_CYCLES + 1):
-        before = int(df.isna().sum().sum())
-        print(f"\n=== Currently on cycle {cycle} of {MAX_CYCLES} (missing cells at start: {before}) ===")
-        for rule, n in run_cycle(df, stats, last_cycle=cycle == MAX_CYCLES).items():
-            if n:
-                print(f"  {rule}: filled {n}")
-        after = int(df.isna().sum().sum())
-        print(f"  Cycle {cycle} done: {before - after} cells filled, {after} still missing")
-        if after == 0:
-            print("  No missing cells left, so no further cycles are needed.")
-            break
-
-    # New feature: average amount spent per transaction over the last 24h.
-    zero = df["transactions_last_24h"] == 0
-    df["avg_spend_per_txn_24h"] = (df["spend_last_24h"] / df["transactions_last_24h"]).where(
-        ~zero, df["transaction_amount"])
-    print(f"\nCreated avg_spend_per_txn_24h "
-          f"({int(zero.sum())} rows with transactions_last_24h == 0 use transaction_amount instead)")
-
-    for col in INT_COLS:
-        if df[col].notna().all():
-            df[col] = df[col].round().astype(int)
-
-    if df[IMPUTED_COLS].notna().all().all():
-        add_features(df, stats)
-        print(f"Added engineered features (young account = account_age < "
-              f"{stats['young_account_days']:.0f} days)")
-    else:
-        print("Skipped engineered features because some cells are still missing")
+    df = clean(df, stats)
 
     remaining = df.isna().sum()[lambda s: s > 0]
     print("\n=== Final result ===")

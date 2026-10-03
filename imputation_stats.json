@@ -426,5 +426,6 @@
     "transactions_last_1h": 1.0
   },
   "median_spend_per_txn_24h": 48.81333333333333,
-  "young_account_days": 230.0
+  "young_account_days": 230.0,
+  "account_age_cap": 4000.0
 }
