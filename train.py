@@ -91,7 +91,7 @@ def main():
     with open(os.path.join(REPORT_DIR, "threshold_tradeoff.md"), "w") as f:
         f.write("# Threshold trade-off (out-of-fold)\n\n" + tradeoff.to_markdown(floatfmt=".3f") + "\n")
     with open(os.path.join(REPORT_DIR, "calibration.md"), "w") as f:
-        f.write("# Calibration (out-of-fold, averaged over CV repeats)\n\n" + calib.to_markdown(floatfmt=".4f") + "\n")
+        f.write("# Calibration (out-of-fold, averaged over CV repeats)\n\n" + calib.round(4).to_markdown() + "\n")
     print("\n" + tradeoff.round(3).to_string())
     print("\n" + calib.round(4).to_string())
     print(f"\nSaved model to {MODEL_DIR}/ and reports to {REPORT_DIR}/")

@@ -16,8 +16,13 @@
 | Repeated 5-fold CV | PR-AUC | 0.205 | **0.226** | +10% |
 | Shift-weighted CV (re-weighted to look like test) | PR-AUC | 0.321 | **0.356** | +11% |
 | Test-like hold-out (train on least test-like 70%, validate on most test-like 30%) | PR-AUC | 0.304 | **0.364** | +20% |
-| Test-like hold-out, at the chosen threshold | F1 / Recall | BASELINE_HOLDOUT_F1 / BASELINE_HOLDOUT_RECALL | **0.437 / 0.473** | |
-| Shift-weighted CV, at the chosen threshold | F1 / Recall | BASELINE_SHIFT_F1 / BASELINE_SHIFT_RECALL | **0.372 / 0.449** | |
+| Test-like hold-out, at each model's threshold | F1 / Recall | 0.365 / 0.267 | **0.437 / 0.473** | F1 +20%, recall +77% |
+| Shift-weighted CV, at each model's threshold | F1 / Recall | 0.378 / 0.370 | **0.372 / 0.449** | F1 −0.006, recall +21% |
+| Repeated 5-fold CV, at each model's threshold | F1 / Recall | 0.286 / 0.233 | **0.285 / 0.302** | F1 −0.001, recall +30% |
+
+(The original model's threshold is 0.145, its own best-F1 rule; ours is 0.095, see §5.) In short, PR-AUC
+improves everywhere. At the decision threshold, we keep in-distribution F1 while catching 20–30% more fraud,
+and on the most test-like data both F1 and recall improve substantially.
 
 ---
 
@@ -125,7 +130,16 @@ the test set does not (§2.5), we scored every model three ways (`validation.py`
 
 ### 4.2 Results (`python compare_models.py` → `reports/model_comparison.md`)
 
-COMPARISON_TABLE
+| Model                              |   CV PR-AUC |   CV ROC-AUC |   CV best F1 |   Shift-wtd PR-AUC |   Shift-wtd best F1 |   Test-like hold-out PR-AUC |   Test-like hold-out best F1 |
+|:-----------------------------------|------------:|-------------:|-------------:|-------------------:|--------------------:|----------------------------:|-----------------------------:|
+| Original baseline (XGBoost d2)     |      0.2049 |       0.7778 |       0.2908 |             0.3212 |              0.4309 |                      0.3043 |                       0.4251 |
+| XGBoost d2, new features           |      0.2189 |       0.7770 |       0.3025 |             0.3404 |              0.4280 |                      0.3523 |                       0.4337 |
+| XGBoost d2 + scale_pos_weight      |      0.1983 |       0.7708 |       0.2811 |             0.3057 |              0.4024 |                      0.2023 |                       0.2896 |
+| Logistic regression (splines)      |      0.2212 |       0.7795 |       0.2950 |             0.3465 |              0.4042 |                      0.1294 |                       0.2283 |
+| EBM (GAM + 10 interactions)        |      0.2163 |       0.7774 |       0.2854 |             0.3401 |              0.4195 |                      0.3270 |                       0.3922 |
+| XGBoost d3 monotone                |      0.2208 |       0.7756 |       0.3022 |             0.3449 |              0.4284 |                      0.3549 |                       0.4415 |
+| CatBoost d3 (3 seeds)              |      0.2196 |       0.7742 |       0.3090 |             0.3449 |              0.4368 |                      0.3468 |                       0.4749 |
+| FINAL: CatBoost + monotone XGBoost |      0.2262 |       0.7790 |       0.3062 |             0.3560 |              0.4372 |                      0.3637 |                       0.4507 |
 
 ### 4.3 What the comparison taught us
 * **Better features help every model.** The same XGBoost goes from 0.205 to 0.219 CV PR-AUC, and from
@@ -150,7 +164,7 @@ COMPARISON_TABLE
 * **Monotone XGBoost adds complementary errors.** We force the score to be non-decreasing in amount,
   velocity, new device, night, merchant risk and signal count, and non-increasing in account age.
   These are rules a fraud analyst would sign off on, and they stop the trees learning implausible
-  wiggles in sparse regions. Averaging it with CatBoost beats either model alone on all three schemes.
+  wiggles in sparse regions. Averaging it with CatBoost beats either model alone on PR-AUC in all three schemes.
 * **Shallow, strongly regularised trees (depth 3, L2 penalty, row and column subsampling).** We tried
   depths 1–6. Deeper trees memorise the few hundred positives and lose ground, especially under shift.
 * **Why not a neural network?** With 20k rows, 10 raw columns and 353 positives, gradient-boosted trees
@@ -162,17 +176,25 @@ COMPARISON_TABLE
 The probability is turned into a 0/1 decision with a threshold chosen from **out-of-fold** predictions,
 never from the training fit itself, so the choice is not optimistic.
 
-* The F1-vs-threshold curve is **flat near its peak**: in CV, F1 varies by only ~0.015 between
-  thresholds 0.09 and 0.20. With 353 frauds those points are statistically indistinguishable.
+* The F1-vs-threshold curve is **flat near its peak**: in CV, F1 stays between 0.285 and 0.300 at every
+  threshold we checked from 0.095 to 0.25. With 353 frauds those points are statistically indistinguishable.
 * Within that plateau we take the **lowest** threshold whose F1 is within 5% of the maximum: **0.095**.
   The F1 maximum itself is at 0.16. This trades almost no F1 for extra recall, consistent with the cost
-  asymmetry in §1. On the test-like hold-out, 0.095 is also very close to the F1 peak.
+  asymmetry in §1. On the test-like hold-out, 0.095 gives the best F1 of all the operating points below.
 * A probability threshold, unlike a fixed top-k%, **adapts to the test set's risk mix**. The test set
   contains more high-risk rows, so more of it gets flagged: 2.7% of test rows vs 2.0% of training rows.
 
 Operating points (`reports/threshold_tradeoff.md`):
 
-THRESHOLD_TABLE
+| threshold       |   CV flagged |   CV precision |   CV recall |   CV F1 |   shift-wtd flagged |   shift-wtd precision |   shift-wtd recall |   shift-wtd F1 |   test-like flagged |   test-like precision |   test-like recall |   test-like F1 |
+|:----------------|-------------:|---------------:|------------:|--------:|--------------------:|----------------------:|-------------------:|---------------:|--------------------:|----------------------:|-------------------:|---------------:|
+| 0.040           |        0.056 |          0.128 |       0.403 |   0.194 |               0.072 |                 0.165 |              0.543 |          0.253 |               0.087 |                 0.188 |              0.594 |          0.286 |
+| 0.060           |        0.034 |          0.175 |       0.342 |   0.232 |               0.049 |                 0.217 |              0.483 |          0.299 |               0.053 |                 0.279 |              0.539 |          0.368 |
+| 0.080           |        0.024 |          0.235 |       0.320 |   0.271 |               0.036 |                 0.278 |              0.463 |          0.347 |               0.038 |                 0.357 |              0.497 |          0.415 |
+| 0.095 (chosen)  |        0.020 |          0.270 |       0.302 |   0.285 |               0.031 |                 0.318 |              0.449 |          0.372 |               0.032 |                 0.406 |              0.473 |          0.437 |
+| 0.120           |        0.015 |          0.325 |       0.274 |   0.297 |               0.026 |                 0.362 |              0.424 |          0.391 |               0.022 |                 0.481 |              0.394 |          0.433 |
+| 0.160 (F1 peak) |        0.011 |          0.380 |       0.247 |   0.300 |               0.021 |                 0.411 |              0.404 |          0.407 |               0.017 |                 0.569 |              0.352 |          0.434 |
+| 0.250           |        0.007 |          0.491 |       0.201 |   0.285 |               0.015 |                 0.525 |              0.351 |          0.421 |               0.013 |                 0.617 |              0.303 |          0.407 |
 
 Use `python predict.py --threshold T` to move along this curve.
 
@@ -186,7 +208,7 @@ Use `python predict.py --threshold T` to move along this curve.
 | **Missing values are missing at random.** | Lets the trees treat NaN as "unknown" without inventing a meaning. | Fraud rates among missing rows sit near the base rate. We deliberately do not use missing-indicator features. |
 | **Monotone effects:** more velocity, larger amounts, new devices, night-time, riskier merchants and more signals never *reduce* risk, and older accounts never *increase* it. | Encoded as XGBoost monotone constraints | Matches the empirical shape functions of an interpretable GAM (EBM) fitted to the data, and standard fraud domain knowledge. |
 | **Features are available at decision time** (no leakage). | The model must work in real time. | Every feature comes from the transaction itself or the customer's *preceding* 1h/24h activity. There is no target encoding, and categorical encoders are fit inside each CV fold. |
-| **The probabilities are calibrated** (no resampling or class weights) | Lets one probability threshold carry over to a test set with a different risk mix | Checked with a reliability table: OOF predicted vs observed fraud rates agree within each of 20 bins. |
+| **The probabilities are calibrated** (no resampling or class weights) | Lets one probability threshold carry over to a test set with a different risk mix | Checked with a reliability table (`reports/calibration.md`): OOF predicted and observed fraud rates agree in every score decile, e.g. 9.0% vs 8.5% in the top decile. |
 | **Missed fraud costs more than a false alarm** | Justifies the recall-leaning threshold | Configurable: `predict.py --threshold`. |
 
 **Assumptions specific to the algorithms:**
