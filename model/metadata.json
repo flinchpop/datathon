@@ -1,0 +1,50 @@
+{
+  "threshold": 0.2560643255710602,
+  "categories": {
+    "merchant_category": [
+      "cash_transfer",
+      "electronics",
+      "entertainment",
+      "food_delivery",
+      "gaming",
+      "grocery",
+      "luxury",
+      "retail",
+      "transport",
+      "travel",
+      "utilities"
+    ],
+    "country": [
+      "AU",
+      "GB",
+      "ID",
+      "JP",
+      "MY",
+      "PH",
+      "SG",
+      "TH",
+      "US",
+      "VN"
+    ],
+    "transaction_channel": [
+      "bank_transfer",
+      "card_present",
+      "ecommerce",
+      "mobile_app"
+    ]
+  },
+  "features": [
+    "transaction_amount",
+    "transaction_hour",
+    "merchant_category",
+    "country",
+    "transaction_channel",
+    "transactions_last_24h",
+    "spend_last_24h",
+    "account_age",
+    "new_device",
+    "transactions_last_1h",
+    "amount_vs_avg_24h",
+    "share_of_24h_spend"
+  ]
+}

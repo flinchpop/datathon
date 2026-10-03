@@ -1,7 +1,12 @@
 """Train an XGBoost fraud classifier on the Track 2 training dataset.
 
+Evaluates the model (5-fold CV + hold-out), then fits a final model on all rows
+and saves it to model/ for use by predict.py.
+
 Usage: python train_xgboost.py [path/to/Track_2_Training_Dataset.csv]
 """
+import json
+import os
 import sys
 
 import numpy as np
@@ -23,18 +28,31 @@ CATEGORICAL = ["merchant_category", "country", "transaction_channel"]
 SEED = 42
 
 
-def load(path):
-    df = pd.read_csv(path)
-    X = df.drop(columns=["id", TARGET])
+MODEL_DIR = "model"
+
+
+def prepare_features(df, categories):
+    """Turn a raw transactions frame into model features.
+
+    `categories` fixes the category levels so new data is encoded exactly like
+    the training data (unseen values become missing).
+    """
+    X = df.drop(columns=["id", TARGET], errors="ignore")
     for col in CATEGORICAL:
-        X[col] = X[col].astype("category")
+        X[col] = pd.Categorical(X[col], categories=categories[col])
     # Simple behavioural ratios; XGBoost handles the NaNs these may produce.
     X["amount_vs_avg_24h"] = X["transaction_amount"] / (
         X["spend_last_24h"] / X["transactions_last_24h"].replace(0, np.nan)
     )
     X["share_of_24h_spend"] = X["transaction_amount"] / X["spend_last_24h"].replace(0, np.nan)
     X = X.replace([np.inf, -np.inf], np.nan)
-    return X, df[TARGET]
+    return X
+
+
+def load(path):
+    df = pd.read_csv(path)
+    categories = {col: sorted(df[col].dropna().unique().tolist()) for col in CATEGORICAL}
+    return prepare_features(df, categories), df[TARGET], categories
 
 
 def make_model():
@@ -64,7 +82,7 @@ def best_f1_threshold(y_true, proba):
 
 
 def main():
-    X, y = load(DATA_PATH)
+    X, y, categories = load(DATA_PATH)
     print(f"Rows: {len(X)}  fraud rate: {y.mean():.2%}  missing cells: {X.isna().sum().sum()}")
 
     # 5-fold stratified CV on the full data.
@@ -97,6 +115,19 @@ def main():
     imp = pd.Series(model.get_booster().get_score(importance_type="gain")).sort_values(ascending=False)
     print("Feature importance (gain):")
     print((imp / imp.sum()).round(4).to_string())
+
+    # Final model: fit on every row. The threshold comes from the CV out-of-fold
+    # predictions, which cover all 20k rows and are steadier than one small split.
+    final_thr, oof_f1 = best_f1_threshold(y, oof)
+    final = make_model()
+    final.fit(X, y)
+    os.makedirs(MODEL_DIR, exist_ok=True)
+    final.save_model(os.path.join(MODEL_DIR, "xgb_fraud.json"))
+    with open(os.path.join(MODEL_DIR, "metadata.json"), "w") as f:
+        json.dump({"threshold": float(final_thr), "categories": categories,
+                   "features": list(X.columns)}, f, indent=2)
+    print(f"\nSaved final model (all {len(X)} rows) to {MODEL_DIR}/  "
+          f"threshold {final_thr:.3f} (OOF F1 {oof_f1:.3f})")
 
 
 if __name__ == "__main__":
