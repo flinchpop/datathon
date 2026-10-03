@@ -23,10 +23,22 @@ New columns:
   <col>_was_missing      1 if <col> was NaN in the raw data, else 0 (one per imputed column)
   avg_spend_per_txn_24h  spend_last_24h / transactions_last_24h
                          (falls back to transaction_amount when transactions_last_24h is 0)
+
+Engineered features (computed after imputation):
+  amount_to_avg_ratio        transaction_amount / avg_spend_per_txn_24h (denominator floored at 1)
+  txn_share_last_1h          transactions_last_1h / transactions_last_24h
+  is_young_account           account_age below the training 20th percentile
+  new_device_young_account   new_device AND is_young_account
+  is_high_risk_merchant      merchant_category in HIGH_RISK_MERCHANTS
+  is_night                   transaction_hour in NIGHT_HOURS
+  log_amount, log_spend_24h  log1p of transaction_amount / spend_last_24h
+  zero_spend_with_txns       spend_last_24h == 0 while transactions_last_24h >= 1
+  hour_sin, hour_cos         transaction_hour on a 24h circle (23:00 sits next to 00:00)
 """
 import argparse
 import json
 
+import numpy as np
 import pandas as pd
 
 MAX_CYCLES = 3
@@ -34,6 +46,10 @@ UNTOUCHED_COLS = ["id", "transaction_amount", "transaction_hour", "fraud"]
 IMPUTED_COLS = ["merchant_category", "country", "transaction_channel", "transactions_last_24h",
                 "spend_last_24h", "account_age", "new_device", "transactions_last_1h"]
 INT_COLS = ["transactions_last_24h", "transactions_last_1h", "account_age", "new_device"]
+# Merchants with roughly 2-3x the overall fraud rate in the training data.
+HIGH_RISK_MERCHANTS = ["luxury", "cash_transfer", "electronics"]
+# Hours with the highest fraud rates in the training data.
+NIGHT_HOURS = [23, 0, 1, 2]
 
 # (target, group-by column, statistic) for the group-based rules, in rule order.
 GROUP_RULES = [
@@ -69,7 +85,25 @@ def fit_stats(df):
     d = d[d["transactions_last_24h"] > 0]
     stats["median_spend_per_txn_24h"] = float(
         (d["spend_last_24h"] / d["transactions_last_24h"]).median())
+    stats["young_account_days"] = float(df["account_age"].dropna().quantile(0.2))
     return stats
+
+
+def add_features(df, stats):
+    """Add engineered features. Needs a fully imputed frame and the training stats."""
+    young = df["account_age"] < stats["young_account_days"]
+    df["amount_to_avg_ratio"] = df["transaction_amount"] / df["avg_spend_per_txn_24h"].clip(lower=1)
+    df["txn_share_last_1h"] = df["transactions_last_1h"] / df["transactions_last_24h"].clip(lower=1)
+    df["is_young_account"] = young.astype(int)
+    df["new_device_young_account"] = ((df["new_device"] == 1) & young).astype(int)
+    df["is_high_risk_merchant"] = df["merchant_category"].isin(HIGH_RISK_MERCHANTS).astype(int)
+    df["is_night"] = df["transaction_hour"].isin(NIGHT_HOURS).astype(int)
+    df["log_amount"] = np.log1p(df["transaction_amount"])
+    df["log_spend_24h"] = np.log1p(df["spend_last_24h"])
+    df["zero_spend_with_txns"] = (
+        (df["spend_last_24h"] == 0) & (df["transactions_last_24h"] >= 1)).astype(int)
+    df["hour_sin"] = np.sin(2 * np.pi * df["transaction_hour"] / 24)
+    df["hour_cos"] = np.cos(2 * np.pi * df["transaction_hour"] / 24)
 
 
 def fill(df, target, values):
@@ -186,6 +220,13 @@ def main():
     for col in INT_COLS:
         if df[col].notna().all():
             df[col] = df[col].round().astype(int)
+
+    if df[IMPUTED_COLS].notna().all().all():
+        add_features(df, stats)
+        print(f"Added engineered features (young account = account_age < "
+              f"{stats['young_account_days']:.0f} days)")
+    else:
+        print("Skipped engineered features because some cells are still missing")
 
     remaining = df.isna().sum()[lambda s: s > 0]
     print("\n=== Final result ===")
