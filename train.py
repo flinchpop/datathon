@@ -2,7 +2,7 @@
 
 Usage:
     python train.py                                   # cross-validate, pick, fit, save model.joblib
-    python train.py predict data/test.csv submission.csv
+    python train.py predict data/test.csv submission.csv   # id, probability, %, 0/1 label
 
 Scoring is 60% PR-AUC plus 40% unknown metrics, so the pipeline aims for:
   * the best ranking (PR-AUC, also ROC-AUC): the model is chosen by out-of-fold PR-AUC;
@@ -164,6 +164,7 @@ def predict(src, dst):
     data = clean(raw, bundle["stats"], verbose=False)
     p = bundle["calibrator"].predict_proba(score(bundle["models"], data).reshape(-1, 1))[:, 1]
     out = pd.DataFrame({"id": raw["id"], "fraud_probability": p,
+                        "fraud_probability_pct": (100 * p).round(2),
                         "fraud": (p >= bundle["threshold"]).astype(int)})
     out.to_csv(dst, index=False)
     print(f"Predicted {len(out)} rows with {bundle['name']}: {out['fraud'].sum()} flagged as fraud "
