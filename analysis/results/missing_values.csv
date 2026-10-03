@@ -1,0 +1,11 @@
+column,missing_train,missing_test,fraud_rate_when_missing_%
+transaction_amount,0,0.0,
+transaction_hour,0,0.0,
+merchant_category,113,259.0,0.0
+country,107,268.0,0.93
+transaction_channel,123,284.0,3.25
+transactions_last_24h,159,293.0,3.14
+spend_last_24h,132,267.0,3.03
+account_age,137,264.0,2.19
+new_device,124,293.0,0.0
+transactions_last_1h,142,245.0,2.82

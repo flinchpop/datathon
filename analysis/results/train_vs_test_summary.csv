@@ -1,0 +1,15 @@
+column,set,mean,median,p90,max
+transaction_amount,train,252.66,75.12,530.35,9000.0
+transaction_amount,test,523.93,87.74,1706.77,9000.0
+transaction_hour,train,11.45,11.0,21.0,23.0
+transaction_hour,test,11.68,12.0,21.0,23.0
+transactions_last_24h,train,4.64,4.0,7.0,27.0
+transactions_last_24h,test,4.69,4.0,7.0,27.0
+spend_last_24h,train,555.26,217.52,1400.4,15670.31
+spend_last_24h,test,698.21,289.02,1625.12,9970.28
+account_age,train,1053.65,790.0,2461.0,4000.0
+account_age,test,1436.5,1158.0,3250.0,4000.0
+new_device,train,0.09,0.0,0.0,1.0
+new_device,test,0.15,0.0,1.0,1.0
+transactions_last_1h,train,0.87,1.0,2.0,9.0
+transactions_last_1h,test,0.94,1.0,2.0,9.0
