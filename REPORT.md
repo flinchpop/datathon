@@ -165,6 +165,23 @@ far above both the account's and the merchant category's usual ticket.*
 * With ≈ 265 expected positives in the hidden set, one leaderboard decimal (0.001) is far below the noise
   floor (± 0.02); judge changes by *paired* CV, not by single submissions.
 
+
+### 5.6 `model.pkl`
+
+`fraud_model.FraudEnsemble` wraps the whole pipeline (feature engineering → five members × five seeds →
+blend → operating point) in one object with `fit / predict_proba / predict`.
+
+* **Batch-independent blend.** Rank averaging depends on the batch being scored, so the pickle instead maps
+  each member's probability through its empirical CDF on a stored reference set (the 12 000 test rows at build
+  time) and weight-averages those. On the reference set this *is* rank averaging; on any other batch it is a
+  fixed monotone transform. `predict_proba` on the test CSV reproduces `outputs/submission.csv` to 4·10⁻⁶.
+* **`predict`** returns 1 when the score ≥ 0.5, i.e. the submitted 1.5 % operating point (180 of 12 000 rows).
+* **Portability.** Boosters are stored as native blobs (CatBoost `.cbm`, XGBoost UBJ, LightGBM text) and
+  rebuilt lazily; learned statistics are plain dicts/arrays; the class source is embedded in the pickle, so
+  loading needs no project code – only numpy, pandas, scikit-learn, xgboost, lightgbm, catboost
+  (built with 2.4.6 / 3.0.6 / 1.9.1 / 3.2.0 / 4.7.0 / 1.2.10). `verify_model_pkl.py` loads it from a neutral
+  directory in a fresh interpreter and checks all of the above.
+
 ## 6. Reproducing
 
 ```bash
@@ -176,4 +193,5 @@ python3 experiments/e3_shift_weighting.py
 python3 experiments/e4_ensemble.py 6     # blend search on identical splits
 python3 run_final.py --seeds 5           # CV + full fit, writes outputs/submission_full.csv
 python3 make_submissions.py --flag-share 0.015   # final upload files
+python3 build_model_pkl.py                       # model.pkl (+ self-check in a clean interpreter)
 ```
