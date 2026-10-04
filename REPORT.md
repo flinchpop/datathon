@@ -176,11 +176,19 @@ blend → operating point) in one object with `fit / predict_proba / predict`.
   time) and weight-averages those. On the reference set this *is* rank averaging; on any other batch it is a
   fixed monotone transform. `predict_proba` on the test CSV reproduces `outputs/submission.csv` to 4·10⁻⁶.
 * **`predict`** returns 1 when the score ≥ 0.5, i.e. the submitted 1.5 % operating point (180 of 12 000 rows).
-* **Portability.** Boosters are stored as native blobs (CatBoost `.cbm`, XGBoost UBJ, LightGBM text) and
-  rebuilt lazily; learned statistics are plain dicts/arrays; the class source is embedded in the pickle, so
-  loading needs no project code – only numpy, pandas, scikit-learn, xgboost, lightgbm, catboost
-  (built with 2.4.6 / 3.0.6 / 1.9.1 / 3.2.0 / 4.7.0 / 1.2.10). `verify_model_pkl.py` loads it from a neutral
-  directory in a fresh interpreter and checks all of the above.
+* **Portability.** CatBoost (`.cbm`) and LightGBM (text) models are stored as native blobs and rebuilt lazily;
+  the XGBoost trees are stored as plain JSON and evaluated in numpy (float32 split comparisons, NaN → default
+  branch; self-checked against xgboost to 2·10⁻⁷) because an XGBoost model saved by 3.2 and loaded by 2.1 was
+  found to predict *silently* differently (max diff 0.76). Learned statistics are plain Python objects; the
+  pickle references a single global (`builtins.eval`) and embeds the class source, so loading needs no project
+  code and no particular library version at unpickle time. Prediction needs numpy, pandas, lightgbm, catboost.
+  Verified under the training stack (Python 3.11/3.12, numpy 2.4, pandas 3.0, lightgbm 4.7, catboost 1.2.10)
+  and under an older stack (numpy 1.26, pandas 2.2, lightgbm 4.5, catboost 1.2.7): members agree to ≤ 2·10⁻⁷,
+  rank agreement 0.99999999985.
+* **Platform notebook.** `submission/predict_notebook.ipynb` reads `DATATHON_INPUT_PATH`, tolerates a missing id,
+  shuffled rows and a header-less file, and writes one `prediction` per row to `DATATHON_OUTPUT_PATH`. Executed
+  end-to-end ("Run all") on a shuffled, id-less copy of the test set in both stacks: correct format, order
+  preserved, byte-identical on re-run.
 
 ## 6. Reproducing
 

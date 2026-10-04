@@ -7,16 +7,7 @@
     1003,
     1004
   ],
-  "threshold_rank_score": 0.984125,
+  "threshold": 0.9841253125,
   "n_flagged_test": 180,
-  "size_mb": 4.9,
-  "built_with": {
-    "python": "3.11",
-    "numpy": "2.4.6",
-    "pandas": "3.0.6",
-    "sklearn": "1.9.1",
-    "xgboost": "3.2.0",
-    "lightgbm": "4.7.0",
-    "catboost": "1.2.10"
-  }
+  "size_mb": 3.522169
 }

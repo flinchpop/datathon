@@ -15,10 +15,11 @@ Design
   for any other batch it is a fixed, batch-independent monotone transform.
 * Output score: blended value rescaled by a strictly increasing piecewise-linear map so that
   score >= 0.5  <=>  flagged (top `flag_share` of the reference set).  Ranks are preserved.
-* Portability: fitted boosters are stored as native byte blobs (CatBoost .cbm, XGBoost UBJ, LightGBM text)
+* Portability: CatBoost (.cbm) and LightGBM (text) models are stored as native blobs; XGBoost trees are stored
+  as plain JSON and evaluated in numpy (xgboost is NOT needed at prediction time)
   and rebuilt lazily, so the pickle does not depend on those libraries' own pickle formats.  Learned
   statistics are plain dicts / numpy arrays (no pandas objects).  The class source is embedded in the
-  pickle via __reduce__, so loading needs only: numpy, pandas, scikit-learn, xgboost, lightgbm, catboost.
+  pickle via __reduce__, so loading needs only: numpy, pandas, scikit-learn, lightgbm, catboost.
 """
 from __future__ import annotations
 
@@ -188,6 +189,57 @@ MEMBERS = {
 TE_M = 20.0
 
 
+# --------------------------------------------------------------------------------------
+# XGBoost trees as plain Python + numpy evaluation (immune to xgboost version differences)
+# --------------------------------------------------------------------------------------
+def _xgb_to_plain(booster, X_train) -> dict:
+    """Parse the booster's own JSON model into plain lists; verify against booster.predict."""
+    import json, xgboost as xgb
+    model = json.loads(bytes(booster.save_raw("json")))
+    learner = model["learner"]
+    assert learner["objective"]["name"] == "binary:logistic"
+    bs = str(learner["learner_model_param"]["base_score"]).strip().strip("[]").split(",")[0]  # "1.765E-2" or "[1.765E-2]"
+    base_score = float(bs)
+    trees = []
+    for t in learner["gradient_booster"]["model"]["trees"]:
+        trees.append(dict(
+            left=[int(v) for v in t["left_children"]], right=[int(v) for v in t["right_children"]],
+            feat=[int(v) for v in t["split_indices"]], cond=[float(v) for v in t["split_conditions"]],
+            default_left=[int(v) for v in t["default_left"]],
+        ))
+    plain = dict(base_score=base_score, trees=trees, n_features=int(X_train.shape[1]))
+    # self-check on the training matrix: our evaluator must match xgboost to float precision
+    ref = booster.predict(xgb.DMatrix(X_train.values.astype(float), feature_names=list(X_train.columns)))
+    mine = _xgb_predict(plain, X_train.values.astype(np.float32))
+    err = float(np.max(np.abs(ref - mine)))
+    if err > 1e-5:
+        raise RuntimeError(f"xgboost re-implementation mismatch: {err}")
+    plain["selfcheck_max_abs_err"] = err
+    return plain
+
+
+def _xgb_predict(plain: dict, X32: np.ndarray) -> np.ndarray:
+    """Evaluate binary:logistic trees exactly like xgboost: float32 comparisons, NaN -> default branch."""
+    n = X32.shape[0]
+    margin = np.full(n, np.log(plain["base_score"] / (1.0 - plain["base_score"])), dtype=np.float64)
+    for t in plain["trees"]:
+        left = np.asarray(t["left"], dtype=np.int64); right = np.asarray(t["right"], dtype=np.int64)
+        feat = np.asarray(t["feat"], dtype=np.int64); cond = np.asarray(t["cond"], dtype=np.float32)
+        dleft = np.asarray(t["default_left"], dtype=bool)
+        node = np.zeros(n, dtype=np.int64)
+        active = left[node] != -1
+        while active.any():
+            idx = np.flatnonzero(active)
+            nd = node[idx]
+            x = X32[idx, feat[nd]]
+            is_nan = np.isnan(x)
+            go_left = np.where(is_nan, dleft[nd], x < cond[nd])
+            node[idx] = np.where(go_left, left[nd], right[nd])
+            active = left[node] != -1
+        margin += cond[node].astype(np.float64)   # leaf weight is stored in split_conditions for leaves
+    return 1.0 / (1.0 + np.exp(-margin))
+
+
 class FraudEnsemble:
     """sklearn-style classifier: fit(train_df) / predict_proba(X) / predict(X)."""
 
@@ -244,7 +296,7 @@ class FraudEnsemble:
                 elif kind == "xgb":
                     m = xgb.XGBClassifier(**params, random_state=s, n_jobs=self.threads, verbosity=0)
                     m.fit(X, y)
-                    self.blobs_[(name, s)] = bytes(m.get_booster().save_raw("ubj"))
+                    self.blobs_[(name, s)] = _xgb_to_plain(m.get_booster(), X)
                 elif kind == "lgbm":
                     m = lgb.LGBMClassifier(**params, random_state=s, n_jobs=self.threads, verbose=-1)
                     m.fit(X, y)
@@ -275,8 +327,7 @@ class FraudEnsemble:
             from catboost import CatBoostClassifier
             b = CatBoostClassifier(); b.load_model(blob=blob)
         elif kind == "xgb":
-            import xgboost as xgb
-            b = xgb.Booster(); b.load_model(bytearray(blob))
+            b = blob  # plain-python trees, evaluated by _xgb_predict (no xgboost import needed)
         elif kind == "lgbm":
             import lightgbm as lgb
             b = lgb.Booster(model_str=blob)
@@ -297,8 +348,7 @@ class FraudEnsemble:
                     from catboost import Pool
                     p = b.predict_proba(Pool(X, cat_features=RAW_CAT))[:, 1]
                 elif kind == "xgb":
-                    import xgboost as xgb
-                    p = b.predict(xgb.DMatrix(X.values.astype(float), feature_names=list(X.columns)))
+                    p = _xgb_predict(b, X.values.astype(np.float32))
                 elif kind == "lgbm":
                     p = b.predict(X.values.astype(float))
                 else:
@@ -344,21 +394,45 @@ class FraudEnsemble:
         return np.mean([mp[n] for n in mp if MEMBERS[n][0] != "lr"], axis=0)
 
     # ----------------------------------------------------------------- pickling
+    # The pickled state contains only Python builtins (dict/list/str/float/bytes): numpy arrays and numpy
+    # scalars are converted on the way out and restored on the way in.  The resulting file references a
+    # single global, builtins.eval, so it loads on any Python with no library imported at unpickle time.
+    _ARRAY_FIELDS = ("reference_",)
+
     def __getstate__(self):
         st = dict(self.__dict__); st["_cache"] = {}
-        return st
+        return _to_native(st)
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.reference_ = {k: np.asarray(v, dtype=float) for k, v in self.reference_.items()}
+        for key, blob in self.blobs_.items():
+            if MEMBERS[key[0]][0] == "lr":  # logistic-regression member: restore numpy arrays
+                self.blobs_[key] = {k: (np.asarray(v, dtype=float) if isinstance(v, list) else v) for k, v in blob.items()}
+        self._cache = {}
 
     def __reduce__(self):
         """Self-contained pickle: the class source is embedded and executed at load time, so unpickling needs
-        no project module on the path.  (Plain `pickle.load` suffices; eval/exec are builtins.)"""
+        no project module on the path.  (Plain `pickle.load` / `joblib.load` suffice; eval/exec are builtins.)"""
         if not self._source:
             raise RuntimeError("FraudEnsemble needs its module source (pass source=... at construction)")
         expr = ("(lambda ns: (exec(ns['__src__'], ns), ns['FraudEnsemble'].__new__(ns['FraudEnsemble']))[1])"
                 "({'__src__': %r, '__name__': 'fraud_model_embedded'})") % (self._source,)
         return (eval, (expr,), self.__getstate__())
 
-    def __setstate__(self, state):
-        self.__dict__.update(state); self._cache = {}
+
+def _to_native(o):
+    """Recursively convert numpy arrays/scalars (and tuple keys) into plain Python objects."""
+    if isinstance(o, dict):
+        return {(_to_native(k) if not isinstance(k, tuple) else tuple(_to_native(x) for x in k)): _to_native(v)
+                for k, v in o.items()}
+    if isinstance(o, (list, tuple)):
+        return type(o)(_to_native(x) for x in o)
+    if isinstance(o, np.ndarray):
+        return [_to_native(x) for x in o.tolist()] if o.dtype == object else o.tolist()
+    if isinstance(o, np.generic):
+        return o.item()
+    return o
 
 
 def module_source() -> str:
